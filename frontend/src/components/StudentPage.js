@@ -24,7 +24,12 @@ export default function StudentPage() {
   const [searchInput, setSearchInput] = useState('');
 
   useEffect(() => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   }, []);
 
   const loadStudentsList = async (examName) => {
@@ -52,8 +57,8 @@ export default function StudentPage() {
         <select style={styles.sideSelect} value={selectedExam}
           onChange={e => loadStudentsList(e.target.value)}>
           <option value="">시험 선택</option>
-          {exams.map(e => (
-            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+          {(Array.isArray(exams) ? exams : []).map(e => (
+              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
 

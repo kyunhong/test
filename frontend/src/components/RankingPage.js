@@ -44,7 +44,12 @@ export default function RankingPage() {
   );
 
   useEffect(() => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   }, []);
 
   const load = async () => {
@@ -118,8 +123,8 @@ export default function RankingPage() {
           <select style={styles.select} value={selectedExam}
             onChange={e => setSelectedExam(e.target.value)}>
             <option value="">시험 선택</option>
-            {exams.map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            {(Array.isArray(exams) ? exams : []).map(e => (
+                <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
             ))}
           </select>
 

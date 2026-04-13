@@ -12,7 +12,12 @@ function ComparisonPage() {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   }, []);
 
   const loadComparison = async () => {
@@ -38,11 +43,15 @@ function ComparisonPage() {
       <div style={styles.row}>
         <select style={styles.select} value={exam1} onChange={e => setExam1(e.target.value)}>
           <option value="">첫 번째 시험</option>
-          {exams.map(e => <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>)}
+          {(Array.isArray(exams) ? exams : []).map(e => (
+              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+          ))}
         </select>
         <select style={styles.select} value={exam2} onChange={e => setExam2(e.target.value)}>
           <option value="">두 번째 시험</option>
-          {exams.map(e => <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>)}
+          {(Array.isArray(exams) ? exams : []).map(e => (
+              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+          ))}
         </select>
         <button style={styles.button} onClick={loadComparison}>비교</button>
       </div>

@@ -31,7 +31,12 @@ export default function ClassComparePage() {
   const contentRef = useRef(null);
 
   useEffect(() => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   }, []);
 
   const load = async () => {
@@ -87,8 +92,8 @@ export default function ClassComparePage() {
         <select style={styles.select} value={selectedExam}
           onChange={e => setSelectedExam(e.target.value)}>
           <option value="">시험 선택</option>
-          {exams.map(e => (
-            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+          {(Array.isArray(exams) ? exams : []).map(e => (
+              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
         <button style={styles.btn} onClick={load}>불러오기</button>

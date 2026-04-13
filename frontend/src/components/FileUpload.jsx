@@ -1,6 +1,6 @@
 // frontend/src/components/FileUpload.jsx
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../api/axios"; 
 
 export default function FileUpload({ onUploadSuccess }) {
   const [file, setFile] = useState(null);
@@ -24,8 +24,8 @@ export default function FileUpload({ onUploadSuccess }) {
     setError("");
 
     try {
-      const res = await axios.post("/api/upload/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+      const res = await api.post("/upload/", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
       });
       onUploadSuccess(res.data);
     } catch (err) {

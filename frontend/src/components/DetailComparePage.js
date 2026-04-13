@@ -768,7 +768,12 @@ export default function DetailComparePage() {
   const migrationRef = useRef(null); // ✅ 추가
 
   useEffect(() => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   }, []);
 
   const load = async () => {
@@ -903,7 +908,9 @@ export default function DetailComparePage() {
             <label style={styles.label}>현재 시험 (기준)</label>
             <select style={styles.select} value={currExam} onChange={e => setCurrExam(e.target.value)}>
               <option value="">선택</option>
-              {exams.map(e => <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>)}
+              {(Array.isArray(exams) ? exams : []).map(e => 
+                  <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+              )}
             </select>
           </div>
           <div style={styles.vsLabel}>VS</div>
@@ -911,7 +918,9 @@ export default function DetailComparePage() {
             <label style={styles.label}>이전 시험 (비교 대상)</label>
             <select style={styles.select} value={prevExam} onChange={e => setPrevExam(e.target.value)}>
               <option value="">선택</option>
-              {exams.filter(e => e.exam_name !== currExam).map(e => <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>)}
+              {(Array.isArray(exams) ? exams : []).filter(e => e.exam_name !== currExam).map(e => 
+                <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+              )}
             </select>
           </div>
           <button style={styles.btn} onClick={load}>비교</button>
