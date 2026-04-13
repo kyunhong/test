@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { getSessionId, exitSharedSession } from '../App';
 
 const MENUS = [
   { path: '/dashboard',      label: '🏠 대시보드' },
@@ -14,7 +15,18 @@ const MENUS = [
 
 export default function Navbar() {
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const isSharedSession = !!sessionStorage.getItem('shared_session_id');
+
+  const handleShareLink = () => {
+    const sessionId = localStorage.getItem('session_id');
+    const shareUrl = `${window.location.origin}/?session=${sessionId}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   return (
     <nav style={styles.nav}>
@@ -24,7 +36,7 @@ export default function Navbar() {
           📚 성적 분석 시스템
         </Link>
 
-        {/* PC 메뉴 */}
+        {/* 메뉴 */}
         <div style={styles.menuPC}>
           {MENUS.map(m => (
             <Link key={m.path} to={m.path} style={{
@@ -36,27 +48,17 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* 모바일 햄버거 */}
-        <button style={styles.hamburger} onClick={() => setOpen(!open)}>
-          {open ? '✕' : '☰'}
-        </button>
+        {/* 공유 버튼 */}
+        {isSharedSession ? (
+          <button onClick={exitSharedSession} style={styles.exitBtn}>
+            🔙 내 데이터로
+          </button>
+        ) : (
+          <button onClick={handleShareLink} style={styles.shareBtn}>
+            {copied ? '✅ 복사됨' : '🔗 공유'}
+          </button>
+        )}
       </div>
-
-      {/* 모바일 드롭다운 */}
-      {open && (
-        <div style={styles.mobileMenu}>
-          {MENUS.map(m => (
-            <Link key={m.path} to={m.path}
-              style={{
-                ...styles.mobileItem,
-                ...(location.pathname === m.path ? styles.mobileItemActive : {})
-              }}
-              onClick={() => setOpen(false)}>
-              {m.label}
-            </Link>
-          ))}
-        </div>
-      )}
     </nav>
   );
 }
@@ -86,19 +88,18 @@ const styles = {
   menuItemActive: {
     background: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold',
   },
-  hamburger: {
-    display: 'none', background: 'none', border: 'none',
-    color: 'white', fontSize: '22px', cursor: 'pointer',
+  shareBtn: {
+    background: 'rgba(255,255,255,0.2)', color: 'white',
+    border: '1px solid rgba(255,255,255,0.4)',
+    borderRadius: '6px', padding: '6px 12px',
+    fontSize: '13px', cursor: 'pointer',
+    whiteSpace: 'nowrap', fontWeight: 'bold', flexShrink: 0,
   },
-  mobileMenu: {
-    background: '#1e3a8a', padding: '8px 0', display: 'flex',
-    flexDirection: 'column',
-  },
-  mobileItem: {
-    color: 'rgba(255,255,255,0.85)', textDecoration: 'none',
-    padding: '12px 24px', fontSize: '15px',
-  },
-  mobileItemActive: {
-    background: 'rgba(255,255,255,0.15)', color: 'white', fontWeight: 'bold',
+  exitBtn: {
+    background: '#ff9800', color: 'white',
+    border: 'none', borderRadius: '6px',
+    padding: '6px 12px', fontSize: '13px',
+    cursor: 'pointer', whiteSpace: 'nowrap',
+    fontWeight: 'bold', flexShrink: 0,
   },
 };
