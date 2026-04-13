@@ -19,7 +19,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     api.get('/exams').then(res => {
-      const list = res.data;
+      const list = Array.isArray(res.data) ? res.data 
+                 : Array.isArray(res.data.exams) ? res.data.exams 
+                 : [];
+
       setExams(list);
       // 가장 최근 시험 자동 선택
       if (list.length > 0) {
