@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
             {/* 레이더 차트 */}
             <div style={styles.radarCard}>
-              <h3 style={styles.radarTitle}>과목별 평균 등급 (높을수록 좋음)</h3>
+              <h3 style={styles.radarTitle}>과목별 평균 등급</h3>
               <ResponsiveContainer width="100%" height={280}>
                 <RadarChart data={radarData}>
                   <PolarGrid />

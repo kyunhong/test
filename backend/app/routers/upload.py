@@ -2,6 +2,7 @@ from fastapi import APIRouter, File, UploadFile, Form, Depends
 from sqlalchemy.orm import Session
 import pandas as pd
 import io
+import uuid  # ✅ 추가
 from ..database import get_db
 from ..models import ExamRecord
 
@@ -12,12 +13,16 @@ async def upload_excel(
     file: UploadFile = File(...),
     exam_name: str = Form(...),
     exam_date: str = Form(...),
-    grade_year: int = Form(1), 
+    grade_year: int = Form(1),
+    session_id: str = Form(None),  # ✅ 추가
     db: Session = Depends(get_db)
 ):
+    # session_id 없으면 새로 발급
+    if not session_id:
+        session_id = str(uuid.uuid4())  # ✅ 추가
+
     contents = await file.read()
     df = pd.read_excel(io.BytesIO(contents))
-
     df.columns = [
         "ban", "number", "name",
         "korean_std", "korean_pct", "korean_grade",
@@ -28,14 +33,16 @@ async def upload_excel(
         "history_grade"
     ]
 
-    # 기존 동일 시험 데이터 삭제 (덮어쓰기)
+    # 같은 session_id + 같은 시험명만 삭제
     db.query(ExamRecord).filter(
+        ExamRecord.session_id == session_id,  # ✅ 수정
         ExamRecord.exam_name == exam_name
     ).delete()
 
     records = []
     for _, row in df.iterrows():
         record = ExamRecord(
+            session_id=session_id,  # ✅ 추가
             exam_name=exam_name,
             exam_date=exam_date,
             ban=int(row["ban"]) if pd.notna(row["ban"]) else 0,
@@ -63,25 +70,36 @@ async def upload_excel(
 
     return {
         "message": f"{len(records)}명 데이터 업로드 완료",
-        "exam_name": exam_name
+        "exam_name": exam_name,
+        "session_id": session_id  # ✅ 프론트에 반환
     }
 
 
 @router.get("/exams")
-def get_exams(db: Session = Depends(get_db)):
+def get_exams(
+    session_id: str,  # ✅ 필수로 받기
+    db: Session = Depends(get_db)
+):
     exams = db.query(
         ExamRecord.exam_name,
         ExamRecord.exam_date
+    ).filter(
+        ExamRecord.session_id == session_id  # ✅ 본인 것만
     ).distinct().all()
-    # 날짜순 정렬
+
     result = [{"exam_name": e[0], "exam_date": e[1]} for e in exams]
     result.sort(key=lambda x: x["exam_date"])
     return result
 
 
 @router.delete("/exams/{exam_name}")
-def delete_exam(exam_name: str, db: Session = Depends(get_db)):
+def delete_exam(
+    exam_name: str,
+    session_id: str,  # ✅ 추가
+    db: Session = Depends(get_db)
+):
     deleted = db.query(ExamRecord).filter(
+        ExamRecord.session_id == session_id,  # ✅ 본인 것만 삭제
         ExamRecord.exam_name == exam_name
     ).delete()
     db.commit()
