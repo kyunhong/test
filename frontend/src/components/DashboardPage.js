@@ -17,18 +17,23 @@ export default function DashboardPage() {
   const [data,         setData]         = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    api.get('/exams').then(res => {
-      const list = Array.isArray(res.data) ? res.data 
-                 : Array.isArray(res.data.exams) ? res.data.exams 
-                 : [];
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
 
-      setExams(list);
-      // 가장 최근 시험 자동 선택
-      if (list.length > 0) {
-        setSelectedExam(list[list.length - 1].exam_name);
-      }
-    });
+  useEffect(() => {
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
+        if (list.length > 0) {
+          setSelectedExam(list[list.length - 1].exam_name);
+        }
+      });
   }, []);
 
   useEffect(() => {
@@ -36,8 +41,9 @@ export default function DashboardPage() {
   }, [selectedExam]);
 
   const load = async (name) => {
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/dashboard?exam_name=${encodeURIComponent(name)}`
+      `/analysis/dashboard?exam_name=${encodeURIComponent(name)}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setData(res.data);
   };
@@ -128,7 +134,6 @@ export default function DashboardPage() {
                         {s.g1}명 ({rate}%)
                       </span>
                     </div>
-                    {/* 1등급 비율 바 */}
                     <div style={styles.barBg}>
                       <div style={{
                         ...styles.barFill,

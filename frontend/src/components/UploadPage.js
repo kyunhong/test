@@ -8,22 +8,19 @@ const validateData = (rows) => {
   const seen     = new Set();
 
   rows.forEach((row, idx) => {
-    const r   = idx + 2; // 엑셀 행 번호 (헤더=1)
+    const r   = idx + 2;
     const ban = row[0], num = row[1], name = row[2];
 
-    // 필수값 체크
     if (!ban || !num || !name) {
       errors.push(`${r}행: 반/번호/이름 중 빈 값이 있습니다`);
     }
 
-    // 중복 체크
     const key = `${ban}-${num}`;
     if (seen.has(key)) {
       warnings.push(`${r}행: ${ban}반 ${num}번 중복 데이터`);
     }
     seen.add(key);
 
-    // 등급 범위 체크 (열 인덱스: 5, 8, 9, 12, 15, 16)
     const gradeIdxs = [5, 8, 9, 12, 15, 16];
     const gradeNames = ['국어등급','수학등급','영어등급','사회등급','과학등급','한국사등급'];
     gradeIdxs.forEach((gi, i) => {
@@ -35,7 +32,6 @@ const validateData = (rows) => {
       }
     });
 
-    // 표준점수 범위 체크 (열 인덱스: 3, 6, 10, 13)
     const stdIdxs  = [3, 6, 10, 13];
     const stdNames = ['국어표준','수학표준','사회표준','과학표준'];
     stdIdxs.forEach((si, i) => {
@@ -52,32 +48,36 @@ const validateData = (rows) => {
 };
 
 export default function UploadPage() {
-  const [file,        setFile]        = useState(null);
-  const [examName,    setExamName]    = useState('');
-  const [examDate,    setExamDate]    = useState('');
-  const [message,     setMessage]     = useState('');
-  const [loading,     setLoading]     = useState(false);
-  const [exams,       setExams]       = useState([]);
-  const [deleteTarget,setDeleteTarget]= useState('');
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [file,         setFile]         = useState(null);
+  const [examName,     setExamName]     = useState('');
+  const [examDate,     setExamDate]     = useState('');
+  const [message,      setMessage]      = useState('');
+  const [loading,      setLoading]      = useState(false);
+  const [exams,        setExams]        = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState('');
+  const [showConfirm,  setShowConfirm]  = useState(false);
+  const [preview,      setPreview]      = useState(null);
+  const [validation,   setValidation]   = useState(null);
+  const [showPreview,  setShowPreview]  = useState(false);
 
-  // 검증 관련 state
-  const [preview,    setPreview]    = useState(null);  // 파싱된 행 데이터
-  const [validation, setValidation] = useState(null);  // { errors, warnings }
-  const [showPreview,setShowPreview]= useState(false);
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
 
   const loadExams = () => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   };
 
   useEffect(() => { loadExams(); }, []);
 
-  // 파일 선택 시 미리보기 + 검증
   const handleFileChange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
@@ -85,19 +85,15 @@ export default function UploadPage() {
     setPreview(null);
     setValidation(null);
 
-    // xlsx 파싱 (SheetJS)
     try {
       const XLSX = await import('xlsx');
       const buffer = await f.arrayBuffer();
       const wb    = XLSX.read(buffer, { type: 'array' });
       const ws    = wb.Sheets[wb.SheetNames[0]];
       const rows  = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-      // 헤더 제외
       const dataRows = rows.slice(1).filter(r =>
         r.some(cell => cell !== null && cell !== '')
       );
-
       const result = validateData(dataRows);
       setPreview(dataRows);
       setValidation(result);
@@ -122,10 +118,21 @@ export default function UploadPage() {
     formData.append('exam_name', examName);
     formData.append('exam_date', examDate);
 
+    // ✅ 기존 session_id 있으면 같이 보내기
+    const existingSessionId = getSessionId();
+    if (existingSessionId) {
+      formData.append('session_id', existingSessionId);
+    }
+
     setLoading(true);
     setMessage('');
+
     try {
       const res = await api.post('/upload', formData);
+
+      // ✅ 서버에서 받은 session_id 저장
+      localStorage.setItem('session_id', res.data.session_id);
+
       setMessage(`✅ ${res.data.message}`);
       setFile(null);
       setExamName('');
@@ -142,7 +149,11 @@ export default function UploadPage() {
 
   const handleDelete = async () => {
     try {
-      const res = await api.delete(`/exams/${encodeURIComponent(deleteTarget)}`);
+      const sessionId = getSessionId();  // ✅ session_id 가져오기
+      const res = await api.delete(
+        `/exams/${encodeURIComponent(deleteTarget)}`,
+        { params: { session_id: sessionId } }  // ✅ session_id 추가
+      );
       setMessage(`🗑️ ${res.data.message}`);
       setShowConfirm(false);
       setDeleteTarget('');
@@ -154,16 +165,15 @@ export default function UploadPage() {
 
   const handleExcelDownload = async (examName) => {
     try {
+      const sessionId = getSessionId();  // ✅ session_id 가져오기
       const response = await fetch(
-        `https://test-production-7665.up.railway.app/analysis/export-excel?exam_name=${encodeURIComponent(examName)}`
+        `https://test-production-7665.up.railway.app/analysis/export-excel?exam_name=${encodeURIComponent(examName)}&session_id=${sessionId}`  // ✅ session_id 추가
       );
-
       if (!response.ok) {
         const err = await response.json();
         alert('다운로드 실패: ' + (err.detail || response.statusText));
         return;
       }
-
       const blob = await response.blob();
       const url  = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -173,7 +183,6 @@ export default function UploadPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
     } catch (err) {
       alert('다운로드 실패: ' + err.message);
     }
@@ -182,12 +191,10 @@ export default function UploadPage() {
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>📂 성적 파일 업로드</h2>
-
       <div style={styles.layout}>
         {/* ── 업로드 카드 ── */}
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>새 성적 업로드</h3>
-
           <div style={styles.field}>
             <label style={styles.label}>시험 이름</label>
             <input style={styles.input}
@@ -195,14 +202,12 @@ export default function UploadPage() {
               value={examName}
               onChange={e => setExamName(e.target.value)} />
           </div>
-
           <div style={styles.field}>
             <label style={styles.label}>시험 날짜</label>
             <input style={styles.input} type="month"
               value={examDate}
               onChange={e => setExamDate(e.target.value)} />
           </div>
-
           <div style={styles.field}>
             <label style={styles.label}>엑셀 파일 (.xlsx)</label>
             <input type="file" accept=".xlsx,.xls"
@@ -302,7 +307,6 @@ export default function UploadPage() {
         {/* ── 업로드된 시험 목록 ── */}
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>업로드된 시험 목록</h3>
-
           {exams.length === 0 ? (
             <p style={styles.empty}>업로드된 시험이 없습니다</p>
           ) : (
