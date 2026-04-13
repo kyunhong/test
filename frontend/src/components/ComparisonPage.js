@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
+import { getSessionId } from '../App'; 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -12,7 +13,7 @@ function ComparisonPage() {
   const [data,  setData]  = useState(null);
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+  //const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();

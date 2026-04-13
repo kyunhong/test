@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { getSessionId } from '../App'; 
 
 const subjects = [
   { key: 'korean_grade',  label: '국어',    color: '#3b82f6' },
@@ -24,7 +25,7 @@ export default function StudentPage() {
   const [searchInput,  setSearchInput]  = useState('');
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+ // const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();

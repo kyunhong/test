@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../api/axios';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { getSessionId } from '../App'; 
 
 const gradeColor = (g) => {
   if (!g) return {};
@@ -43,7 +44,7 @@ export default function RankingPage() {
   );
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+  //const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();

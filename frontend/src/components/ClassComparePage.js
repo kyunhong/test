@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import { getSessionId } from '../App'; 
 
 const SUBJECTS = [
   { key: 'korean',  label: '국어' },
@@ -31,7 +32,7 @@ export default function ClassComparePage() {
   const contentRef = useRef(null);
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+ // const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();

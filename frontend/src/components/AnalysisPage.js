@@ -6,6 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import { getSessionId } from '../App'; 
 
 // ─────────────────────────────────────────
 // 등급 클릭 모달
@@ -114,7 +115,7 @@ export default function AnalysisPage() {
   const contentRef = useRef(null);
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+ // const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();

@@ -8,6 +8,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   LabelList, LineChart, Line,
 } from 'recharts';
+import { getSessionId } from '../App'; 
 
 const SUBJECTS = [
   { key: 'korean',  label: '국어' },
@@ -766,7 +767,7 @@ export default function DetailComparePage() {
   const schoolRef    = useRef(null);
   const studentRef   = useRef(null);
   const migrationRef = useRef(null); // ✅ 추가
-  const getSessionId = () => localStorage.getItem('session_id');
+  //const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
       const sessionId = getSessionId();
