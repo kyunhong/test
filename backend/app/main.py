@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from .routers import upload, analysis
+import os
 
 Base.metadata.create_all(bind=engine)
 
@@ -9,8 +10,12 @@ app = FastAPI(title="모의고사 성적 분석 API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 모든 포트 허용으로 변경
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        os.environ.get("FRONTEND_URL", "*"),
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
