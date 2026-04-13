@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
+import { getSessionId } from '../App';  // ✅ App.js 함수 import
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
   ResponsiveContainer, Tooltip
@@ -17,14 +18,10 @@ export default function DashboardPage() {
   const [data,         setData]         = useState(null);
   const navigate = useNavigate();
 
-  // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
-
   useEffect(() => {
-    const sessionId = getSessionId();
-    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
-
-    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+    const sessionId = getSessionId();  // ✅ App.js 함수 사용
+    if (!sessionId) return;
+    api.get('/exams', { params: { session_id: sessionId } })
       .then(res => {
         const list = Array.isArray(res.data) ? res.data
                    : Array.isArray(res.data.exams) ? res.data.exams
@@ -41,13 +38,13 @@ export default function DashboardPage() {
   }, [selectedExam]);
 
   const load = async (name) => {
-    const sessionId = getSessionId();  // ✅ session_id 가져오기
+    const sessionId = getSessionId();  // ✅ App.js 함수 사용
     const res = await api.get(
-      `/analysis/dashboard?exam_name=${encodeURIComponent(name)}&session_id=${sessionId}`  // ✅ session_id 추가
+      `/analysis/dashboard?exam_name=${encodeURIComponent(name)}&session_id=${sessionId}`
     );
     setData(res.data);
   };
-
+  
   // 레이더 차트 데이터 (평균 등급 → 낮을수록 좋으므로 반전)
   const radarData = data ? Object.entries(SUBJECT_LABELS).map(([key, label]) => ({
     subject: label,
