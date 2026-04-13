@@ -67,7 +67,12 @@ export default function UploadPage() {
   const [showPreview,setShowPreview]= useState(false);
 
   const loadExams = () => {
-    api.get('/exams').then(res => setExams(res.data));
+      api.get('/exams').then(res => {
+          const list = Array.isArray(res.data) ? res.data
+                    : Array.isArray(res.data.exams) ? res.data.exams
+                    : [];
+          setExams(list);
+      });
   };
 
   useEffect(() => { loadExams(); }, []);
@@ -150,7 +155,7 @@ export default function UploadPage() {
   const handleExcelDownload = async (examName) => {
     try {
       const response = await fetch(
-        `http://localhost:8000/analysis/export-excel?exam_name=${encodeURIComponent(examName)}`
+        `https://test-production-7665.up.railway.app/analysis/export-excel?exam_name=${encodeURIComponent(examName)}`
       );
 
       if (!response.ok) {
