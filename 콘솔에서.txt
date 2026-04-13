@@ -1,0 +1,14 @@
+콘솔에서 
+
+curl -X POST https://maehol-production.up.railway.app/api/reset_all_data
+
+
+# 1. Python 패키지 설치
+pip install streamlit pandas plotly numpy scikit-learn scipy qrcode pillow
+
+# 2. 앱 실행
+streamlit run 분류.py --server.port 8501 --server.address 0.0.0.0
+
+
+backend에서 uvicorn app.main:app --reload --port 8000
+frontend에서 npm start
