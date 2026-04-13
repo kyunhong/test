@@ -12,6 +12,7 @@ async def upload_excel(
     file: UploadFile = File(...),
     exam_name: str = Form(...),
     exam_date: str = Form(...),
+    grade_year: int = Form(1), 
     db: Session = Depends(get_db)
 ):
     contents = await file.read()
