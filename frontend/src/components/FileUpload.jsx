@@ -24,7 +24,7 @@ export default function FileUpload({ onUploadSuccess }) {
     setError("");
 
     try {
-      const res = await api.post("/upload/", formData, {
+      const res = await api.post("/upload", formData, {
           headers: { "Content-Type": "multipart/form-data" },
       });
       onUploadSuccess(res.data);
