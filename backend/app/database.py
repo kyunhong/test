@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -16,3 +16,13 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# ✅ 컬럼 자동 추가
+def migrate():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE exam_records ADD COLUMN session_id VARCHAR"))
+            conn.commit()
+            print("✅ session_id 컬럼 추가 완료")
+        except Exception as e:
+            print(f"이미 있거나 에러: {e}")

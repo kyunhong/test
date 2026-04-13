@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from .routers import upload, analysis
+from .database import migrate
+
+migrate()
 import os
 
 Base.metadata.create_all(bind=engine)
