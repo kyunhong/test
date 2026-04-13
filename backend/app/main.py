@@ -14,7 +14,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "https://kyunhong.github.io",
-        os.environ.get("FRONTEND_URL", "*"),
+        "https://test-production-0860.up.railway.app",  # ✅ 추가
     ],
     allow_credentials=True,
     allow_methods=["*"],
