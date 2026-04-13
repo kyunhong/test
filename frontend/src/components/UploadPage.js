@@ -118,7 +118,6 @@ export default function UploadPage() {
     formData.append('exam_name', examName);
     formData.append('exam_date', examDate);
 
-    // ✅ 기존 session_id 있으면 같이 보내기
     const existingSessionId = getSessionId();
     if (existingSessionId) {
       formData.append('session_id', existingSessionId);
@@ -130,8 +129,10 @@ export default function UploadPage() {
     try {
       const res = await api.post('/upload', formData);
 
-      // ✅ 서버에서 받은 session_id 저장
-      localStorage.setItem('session_id', res.data.session_id);
+      // ✅ session_id가 없을 때만 저장 (처음 업로드할 때만)
+      if (!localStorage.getItem('session_id')) {
+        localStorage.setItem('session_id', res.data.session_id);
+      }
 
       setMessage(`✅ ${res.data.message}`);
       setFile(null);
