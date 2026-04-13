@@ -2,9 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
 from .routers import upload, analysis
-from .database import migrate
-
-migrate()
 import os
 
 Base.metadata.create_all(bind=engine)
@@ -17,7 +14,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
         "https://kyunhong.github.io",
-        "https://test-production-0860.up.railway.app",  # ✅ 추가
+        "https://test-production-0860.up.railway.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
