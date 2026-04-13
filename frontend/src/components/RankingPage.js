@@ -28,14 +28,13 @@ const GRADE_SUBJECTS = [
 ];
 
 export default function RankingPage() {
-  const [exams, setExams] = useState([]);
+  const [exams,        setExams]        = useState([]);
   const [selectedExam, setSelectedExam] = useState('');
-  const [mode, setMode] = useState('std');
-  const [ranking, setRanking] = useState([]);
-  const [filterBan, setFilterBan] = useState('전체');
-  const [search, setSearch] = useState('');
+  const [mode,         setMode]         = useState('std');
+  const [ranking,      setRanking]      = useState([]);
+  const [filterBan,    setFilterBan]    = useState('전체');
+  const [search,       setSearch]       = useState('');
   const contentRef = useRef(null);
-
   const [stdSubjects, setStdSubjects] = useState(
     Object.fromEntries(STD_SUBJECTS.map(s => [s.key, true]))
   );
@@ -43,58 +42,47 @@ export default function RankingPage() {
     Object.fromEntries(GRADE_SUBJECTS.map(s => [s.key, true]))
   );
 
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
+
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const load = async () => {
     if (!selectedExam) return;
 
-    const subjectMap = mode === 'std' ? stdSubjects : gradeSubjects;
-    const selectedKeys = Object.entries(subjectMap)
+    const subjectMap    = mode === 'std' ? stdSubjects : gradeSubjects;
+    const selectedKeys  = Object.entries(subjectMap)
       .filter(([, v]) => v)
       .map(([k]) => k)
       .join(',');
 
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/ranking?exam_name=${encodeURIComponent(selectedExam)}&mode=${mode}&subjects=${selectedKeys}`
+      `/analysis/ranking?exam_name=${encodeURIComponent(selectedExam)}&mode=${mode}&subjects=${selectedKeys}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setRanking(res.data);
   };
 
-  // 숫자 정렬 (1반, 2반 ... 9반, 10반)
-  const bans = ['전체', ...[...new Set(ranking.map(r => r.ban))]
-    .sort((a, b) => a - b)];
-
-  const filtered = ranking.filter(r => {
-    const banOk = filterBan === '전체' || r.ban === Number(filterBan);
-    const nameOk = r.name.includes(search);
-    return banOk && nameOk;
-  });
-
-  const currentSubjects = mode === 'std' ? STD_SUBJECTS : GRADE_SUBJECTS;
-  const currentChecked = mode === 'std' ? stdSubjects : gradeSubjects;
-  const setCurrentChecked = mode === 'std' ? setStdSubjects : setGradeSubjects;
-
-  const selectedLabel = currentSubjects
-    .filter(s => currentChecked[s.key])
-    .map(s => s.label)
-    .join(' + ');
-
   // PDF 저장
   const savePDF = async () => {
-    const el = contentRef.current;
+    const el     = contentRef.current;
     const canvas = await html2canvas(el, { scale: 1.5, useCORS: true });
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('l', 'mm', 'a4');
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgH = (canvas.height * pageW) / canvas.width;
+    const pdf    = new jsPDF('l', 'mm', 'a4');
+    const pageW  = pdf.internal.pageSize.getWidth();
+    const pageH  = pdf.internal.pageSize.getHeight();
+    const imgH   = (canvas.height * pageW) / canvas.width;
     let y = 0;
     while (y < imgH) {
       pdf.addImage(imgData, 'PNG', 0, -y, pageW, imgH);
@@ -104,9 +92,27 @@ export default function RankingPage() {
     pdf.save(`학교석차_${selectedExam || '결과'}.pdf`);
   };
 
+  const bans = ['전체', ...[...new Set(ranking.map(r => r.ban))]
+    .sort((a, b) => a - b)];
+
+  const filtered = ranking.filter(r => {
+    const banOk  = filterBan === '전체' || r.ban === Number(filterBan);
+    const nameOk = r.name.includes(search);
+    return banOk && nameOk;
+  });
+
+  const currentSubjects   = mode === 'std' ? STD_SUBJECTS   : GRADE_SUBJECTS;
+  const currentChecked    = mode === 'std' ? stdSubjects     : gradeSubjects;
+  const setCurrentChecked = mode === 'std' ? setStdSubjects  : setGradeSubjects;
+
+  const selectedLabel = currentSubjects
+    .filter(s => currentChecked[s.key])
+    .map(s => s.label)
+    .join(' + ');
+
   return (
     <div style={styles.container}>
-      {/* 제목 + PDF */}
+      {/* ── 제목 + PDF ── */}
       <div style={styles.titleRow}>
         <h2 style={styles.title}>🏆 학교 석차</h2>
         {ranking.length > 0 && (
@@ -116,19 +122,17 @@ export default function RankingPage() {
         )}
       </div>
 
-      {/* 설정 카드 */}
+      {/* ── 설정 카드 ── */}
       <div style={styles.settingCard}>
         <div style={styles.settingRow}>
-          {/* 시험 선택 */}
           <select style={styles.select} value={selectedExam}
             onChange={e => setSelectedExam(e.target.value)}>
             <option value="">시험 선택</option>
             {(Array.isArray(exams) ? exams : []).map(e => (
-                <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
             ))}
           </select>
 
-          {/* 모드 선택 */}
           <div style={styles.modeBox}>
             <label style={styles.modeLabel}>
               <input type="radio" value="std" checked={mode === 'std'}
@@ -174,7 +178,7 @@ export default function RankingPage() {
         </div>
       </div>
 
-      {/* ref 영역 시작 */}
+      {/* ── ref 영역 시작 ── */}
       <div ref={contentRef}>
         {/* 반 필터 + 검색 */}
         {ranking.length > 0 && (
@@ -254,7 +258,7 @@ export default function RankingPage() {
           </div>
         )}
       </div>
-      {/* ref 영역 끝 */}
+      {/* ── ref 영역 끝 ── */}
     </div>
   );
 }

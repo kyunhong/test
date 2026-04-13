@@ -766,9 +766,12 @@ export default function DetailComparePage() {
   const schoolRef    = useRef(null);
   const studentRef   = useRef(null);
   const migrationRef = useRef(null); // ✅ 추가
+  const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
-      api.get('/exams').then(res => {
+      const sessionId = getSessionId();
+      if (!sessionId) return;
+      api.get('/exams', { params: { session_id: sessionId } }).then(res => {
           const list = Array.isArray(res.data) ? res.data
                     : Array.isArray(res.data.exams) ? res.data.exams
                     : [];
@@ -778,8 +781,9 @@ export default function DetailComparePage() {
 
   const load = async () => {
     if (!currExam || !prevExam) return;
+    const sessionId = getSessionId();
     const res = await api.get(
-      `/analysis/detail-compare?exam_name=${encodeURIComponent(currExam)}&prev_exam_name=${encodeURIComponent(prevExam)}`
+      `/analysis/detail-compare?exam_name=${encodeURIComponent(currExam)}&prev_exam_name=${encodeURIComponent(prevExam)}&session_id=${sessionId}`
     );
     setData(res.data);
   };
@@ -1010,7 +1014,7 @@ export default function DetailComparePage() {
               </div>
 
               <div style={styles.chartCard}>
-                <h3 style={styles.chartTitle}>과목별 평균 등급 비교<span style={styles.chartSub}>(높을수록 좋음)</span></h3>
+                <h3 style={styles.chartTitle}>과목별 평균 등급 비교<span style={styles.chartSub}></span></h3>
                 <ResponsiveContainer width="100%" height={320}>
                   <RadarChart data={radarData}>
                     <PolarGrid />

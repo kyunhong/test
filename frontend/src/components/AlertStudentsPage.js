@@ -55,11 +55,10 @@ const avgGradeColor = (avg) => {
   return { bg: '#f87171', color: '#450a0a' };
 };
 
-// ── 정렬 옵션 ──
 const SORT_OPTIONS = [
-  { value: 'default',    label: '기본순',       desc: '위험 수 많은 순' },
-  { value: 'ban_number', label: '반·번호순',    desc: '반 → 번호 오름차순' },
-  { value: 'avg_asc',    label: '평균 내신순',  desc: '평균 낮은(좋은) 순' },
+  { value: 'default',    label: '기본순',         desc: '위험 수 많은 순' },
+  { value: 'ban_number', label: '반·번호순',      desc: '반 → 번호 오름차순' },
+  { value: 'avg_asc',    label: '평균 내신순',    desc: '평균 낮은(좋은) 순' },
   { value: 'avg_desc',   label: '평균 내신 역순', desc: '평균 높은(나쁜) 순' },
 ];
 
@@ -80,7 +79,6 @@ const sortData = (arr, sortKey) => {
       parseFloat(calcAvgGrade(b) ?? 0) - parseFloat(calcAvgGrade(a) ?? 0)
     );
   }
-  // default: weak_count 내림차순 (서버 원본 순서 유지)
   return copy.sort((a, b) => b.weak_count - a.weak_count);
 };
 
@@ -93,21 +91,29 @@ export default function AlertStudentsPage() {
   const [filterBan,     setFilterBan]     = useState('전체');
   const [search,        setSearch]        = useState('');
   const [loaded,        setLoaded]        = useState(false);
-  const [sortKey,       setSortKey]       = useState('default'); // ← 정렬 상태
+  const [sortKey,       setSortKey]       = useState('default');
+
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const load = async () => {
     if (!examName) return;
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/alert-students?exam_name=${encodeURIComponent(examName)}&threshold=${threshold}&explore_method=${exploreMethod}`
+      `/analysis/alert-students?exam_name=${encodeURIComponent(examName)}&threshold=${threshold}&explore_method=${exploreMethod}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setData(res.data);
     setLoaded(true);
@@ -149,10 +155,11 @@ export default function AlertStudentsPage() {
               onChange={e => setExamName(e.target.value)}>
               <option value="">선택</option>
               {(Array.isArray(exams) ? exams : []).map(e => (
-                  <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+                <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
               ))}
             </select>
           </div>
+
           <div style={styles.field}>
             <label style={styles.label}>
               위기 기준 등급
@@ -165,6 +172,7 @@ export default function AlertStudentsPage() {
               ))}
             </select>
           </div>
+
           <button style={styles.btn} onClick={load}>조회</button>
         </div>
 
@@ -207,7 +215,6 @@ export default function AlertStudentsPage() {
 
           {/* ── 필터 + 정렬 ── */}
           <div style={styles.filterRow}>
-            {/* 반 필터 */}
             <div style={styles.banBtns}>
               {bans.map(b => (
                 <button key={b} style={{
@@ -219,7 +226,6 @@ export default function AlertStudentsPage() {
               ))}
             </div>
 
-            {/* 이름 검색 */}
             <input
               placeholder="이름 검색"
               value={search}
@@ -227,14 +233,12 @@ export default function AlertStudentsPage() {
               style={styles.searchInput}
             />
 
-            {/* 정렬 버튼 */}
             <div style={styles.sortBtns}>
               {SORT_OPTIONS.map(o => (
                 <button key={o.value} style={{
                   ...styles.sortBtn,
                   ...(sortKey === o.value ? styles.sortBtnActive : {})
-                }} onClick={() => setSortKey(o.value)}
-                  title={o.desc}>
+                }} onClick={() => setSortKey(o.value)} title={o.desc}>
                   {o.label}
                 </button>
               ))}
@@ -262,16 +266,14 @@ export default function AlertStudentsPage() {
                     <th style={styles.th}>통합사회</th>
                     <th style={styles.th}>통합과학</th>
                     <th style={styles.th}>
-                      탐구 합산
-                      <br />
+                      탐구 합산<br />
                       <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'normal' }}>
                         {EXPLORE_OPTIONS.find(o => o.value === exploreMethod)?.desc}
                       </span>
                     </th>
                     <th style={styles.th}>한국사</th>
                     <th style={styles.th}>
-                      평균 내신
-                      <br />
+                      평균 내신<br />
                       <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: 'normal' }}>
                         한국사 제외
                       </span>
@@ -286,7 +288,6 @@ export default function AlertStudentsPage() {
                     const exploreAlert = eg != null && eg >= threshold;
                     const avg  = calcAvgGrade(s);
                     const avgC = avgGradeColor(avg);
-
                     return (
                       <tr key={i} style={{
                         background: s.weak_count >= 3 ? '#fff1f2'
@@ -296,53 +297,41 @@ export default function AlertStudentsPage() {
                         <td style={styles.td}>{s.ban}</td>
                         <td style={styles.td}>{s.number}</td>
                         <td style={{ ...styles.td, fontWeight: 'bold' }}>{s.name}</td>
-
-                        {/* 국어 */}
-                        <td style={{ ...styles.td, ...(s.korean_grade >= threshold ? styles.alertCell : {}) }}>
+                        <td style={{ ...styles.td, ...(s.korean_grade  >= threshold ? styles.alertCell : {}) }}>
                           <GradeChip grade={s.korean_grade} />
                         </td>
-                        {/* 수학 */}
-                        <td style={{ ...styles.td, ...(s.math_grade >= threshold ? styles.alertCell : {}) }}>
+                        <td style={{ ...styles.td, ...(s.math_grade    >= threshold ? styles.alertCell : {}) }}>
                           <GradeChip grade={s.math_grade} />
                         </td>
-                        {/* 영어 */}
                         <td style={{ ...styles.td, ...(s.english_grade >= threshold ? styles.alertCell : {}) }}>
                           <GradeChip grade={s.english_grade} />
                         </td>
-                        {/* 통합사회 */}
                         <td style={styles.td}>
                           <GradeChip grade={s.society_grade} />
                         </td>
-                        {/* 통합과학 */}
                         <td style={styles.td}>
                           <GradeChip grade={s.science_grade} />
                         </td>
-                        {/* 탐구 합산 */}
                         <td style={{ ...styles.td, ...(exploreAlert ? styles.alertCell : {}) }}>
                           <GradeChip grade={eg} />
                           <div style={styles.exploreMini}>
-                            <span>평균 {s.explore_avg ?? '-'}</span>
-                            <span>유리 {s.explore_best ?? '-'}</span>
+                            <span>평균 {s.explore_avg   ?? '-'}</span>
+                            <span>유리 {s.explore_best  ?? '-'}</span>
                             <span>불리 {s.explore_worst ?? '-'}</span>
                           </div>
                         </td>
-                        {/* 한국사 (색상 없음) */}
-                        <td style={styles.td}>
-                          {s.history_grade ?? '-'}
-                        </td>
-                        {/* 평균 내신 */}
+                        <td style={styles.td}>{s.history_grade ?? '-'}</td>
                         <td style={styles.td}>
                           {avg != null ? (
                             <span style={{
                               ...styles.gradeChip,
                               background: avgC.bg,
-                              color: avgC.color,
+                              color:      avgC.color,
                             }}>
                               {avg}
                             </span>
                           ) : '-'}
                         </td>
-                        {/* 위험 과목 태그 */}
                         <td style={{ ...styles.td, maxWidth: '160px' }}>
                           <div style={styles.weakTags}>
                             {s.weak_subjects.map((subj, j) => (
@@ -350,7 +339,6 @@ export default function AlertStudentsPage() {
                             ))}
                           </div>
                         </td>
-                        {/* 위험 수 */}
                         <td style={styles.td}>
                           <span style={{
                             ...styles.weakCount,
@@ -404,7 +392,6 @@ const styles = {
   banBtn:           { padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontSize: '13px' },
   banBtnActive:     { background: '#1e40af', color: 'white', border: '1px solid #1e40af' },
   searchInput:      { padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' },
-  // 정렬 버튼
   sortBtns:         { display: 'flex', gap: '4px', flexWrap: 'wrap' },
   sortBtn:          { padding: '6px 12px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer', fontSize: '12px', color: '#374151' },
   sortBtnActive:    { background: '#7c3aed', color: 'white', border: '1px solid #7c3aed', fontWeight: 'bold' },

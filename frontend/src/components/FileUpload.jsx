@@ -1,32 +1,44 @@
 // frontend/src/components/FileUpload.jsx
 import React, { useState } from "react";
-import api from "../api/axios"; 
+import api from "../api/axios";
 
 export default function FileUpload({ onUploadSuccess }) {
-  const [file, setFile] = useState(null);
-  const [examName, setExamName] = useState("");
-  const [examDate, setExamDate] = useState("");
-  const [gradeYear, setGradeYear] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [file,       setFile]       = useState(null);
+  const [examName,   setExamName]   = useState("");
+  const [examDate,   setExamDate]   = useState("");
+  const [gradeYear,  setGradeYear]  = useState(1);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return setError("파일을 선택해주세요.");
 
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("exam_name", examName);
-    formData.append("exam_date", examDate);
+    formData.append("file",       file);
+    formData.append("exam_name",  examName);
+    formData.append("exam_date",  examDate);
     formData.append("grade_year", gradeYear);
+
+    // ✅ 기존 session_id 있으면 같이 보내기
+    const existingSessionId = localStorage.getItem("session_id");
+    if (existingSessionId) {
+      formData.append("session_id", existingSessionId);
+    }
 
     setLoading(true);
     setError("");
 
     try {
       const res = await api.post("/upload", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": "multipart/form-data" },
       });
+
+      // ✅ 서버에서 받은 session_id 저장
+      if (res.data.session_id) {
+        localStorage.setItem("session_id", res.data.session_id);
+      }
+
       onUploadSuccess(res.data);
     } catch (err) {
       setError(err.response?.data?.detail || "업로드 실패");
@@ -39,7 +51,7 @@ export default function FileUpload({ onUploadSuccess }) {
     <div className="p-6 bg-white rounded-2xl shadow-md max-w-lg mx-auto">
       <h2 className="text-xl font-bold mb-4 text-gray-800">📂 성적 파일 업로드</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             시험명
@@ -107,6 +119,7 @@ export default function FileUpload({ onUploadSuccess }) {
         >
           {loading ? "업로드 중..." : "업로드 및 분석"}
         </button>
+
       </form>
     </div>
   );

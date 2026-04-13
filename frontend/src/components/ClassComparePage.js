@@ -30,26 +30,34 @@ export default function ClassComparePage() {
   const [viewSubject,  setViewSubject]  = useState('korean');
   const contentRef = useRef(null);
 
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
+
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const load = async () => {
     if (!selectedExam) return;
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/class-compare?exam_name=${encodeURIComponent(selectedExam)}`
+      `/analysis/class-compare?exam_name=${encodeURIComponent(selectedExam)}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setData(res.data);
   };
 
   // 차트 데이터
   const chartData = data.map(d => ({
-    name: `${d.ban}반`,
+    name:  `${d.ban}반`,
     value: d[viewSubject]?.[viewMode] ?? 0,
   }));
 
@@ -58,14 +66,15 @@ export default function ClassComparePage() {
   const maxValue = Math.max(...values);
   const minValue = Math.min(...values);
 
+  // PDF 저장
   const savePDF = async () => {
-    const el = contentRef.current;
+    const el     = contentRef.current;
     const canvas = await html2canvas(el, { scale: 1.5, useCORS: true });
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('l', 'mm', 'a4');
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgH  = (canvas.height * pageW) / canvas.width;
+    const pdf    = new jsPDF('l', 'mm', 'a4');
+    const pageW  = pdf.internal.pageSize.getWidth();
+    const pageH  = pdf.internal.pageSize.getHeight();
+    const imgH   = (canvas.height * pageW) / canvas.width;
     let y = 0;
     while (y < imgH) {
       pdf.addImage(imgData, 'PNG', 0, -y, pageW, imgH);
@@ -80,6 +89,7 @@ export default function ClassComparePage() {
 
   return (
     <div style={styles.container}>
+      {/* ── 제목 + PDF ── */}
       <div style={styles.titleRow}>
         <h2 style={styles.title}>🏫 반별 성적 비교</h2>
         {data.length > 0 && (
@@ -87,13 +97,13 @@ export default function ClassComparePage() {
         )}
       </div>
 
-      {/* 시험 선택 */}
+      {/* ── 시험 선택 ── */}
       <div style={styles.row}>
         <select style={styles.select} value={selectedExam}
           onChange={e => setSelectedExam(e.target.value)}>
           <option value="">시험 선택</option>
           {(Array.isArray(exams) ? exams : []).map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
         <button style={styles.btn} onClick={load}>불러오기</button>
@@ -101,7 +111,7 @@ export default function ClassComparePage() {
 
       {data.length > 0 && (
         <div ref={contentRef}>
-          {/* 보기 옵션 */}
+          {/* ── 보기 옵션 ── */}
           <div style={styles.optionCard}>
             <div style={styles.optionRow}>
               <span style={styles.optionLabel}>과목:</span>
@@ -127,13 +137,14 @@ export default function ClassComparePage() {
             </div>
           </div>
 
-          {/* 차트 */}
+          {/* ── 차트 ── */}
           <div style={styles.chartCard}>
             <h3 style={styles.chartTitle}>
               {currentSubjectLabel} — {currentModeLabel} 반별 비교
             </h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <BarChart data={chartData}
+                margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis
@@ -142,7 +153,7 @@ export default function ClassComparePage() {
                 />
                 <Tooltip
                   formatter={v => [
-                    viewMode === 'g1' ? `${v}명` :
+                    viewMode === 'g1'        ? `${v}명`  :
                     viewMode === 'avg_grade' ? `${v}등급` : `${v}점`,
                     currentModeLabel
                   ]}
@@ -156,7 +167,7 @@ export default function ClassComparePage() {
             )}
           </div>
 
-          {/* 상세 테이블 */}
+          {/* ── 상세 테이블 ── */}
           <div style={styles.tableCard}>
             <h3 style={styles.tableTitle}>반별 전체 현황</h3>
             <div style={{ overflowX: 'auto' }}>
@@ -177,44 +188,40 @@ export default function ClassComparePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.map((d, i) => {
-                    const isMax = (field, subj) =>
-                      d[subj]?.[field] === maxValue;
-
-                    return (
-                      <tr key={i} style={i % 2 === 0 ? {} : { background: '#f9fafb' }}>
-                        <td style={{ ...styles.td, fontWeight: 'bold' }}>{d.ban}반</td>
-                        <td style={styles.td}>{d.total}명</td>
-                        {SUBJECTS.map(s => (
-                          <React.Fragment key={s.key}>
+                  {data.map((d, i) => (
+                    <tr key={i}
+                      style={i % 2 === 0 ? {} : { background: '#f9fafb' }}>
+                      <td style={{ ...styles.td, fontWeight: 'bold' }}>{d.ban}반</td>
+                      <td style={styles.td}>{d.total}명</td>
+                      {SUBJECTS.map(s => (
+                        <React.Fragment key={s.key}>
+                          <td style={{
+                            ...styles.td,
+                            ...(viewSubject === s.key && viewMode === 'avg_grade'
+                              ? { background: '#eff6ff', fontWeight: 'bold' } : {})
+                          }}>
+                            {d[s.key]?.avg_grade ?? '-'}
+                          </td>
+                          {s.key !== 'english' && s.key !== 'history' && (
                             <td style={{
                               ...styles.td,
-                              ...(viewSubject === s.key && viewMode === 'avg_grade'
+                              ...(viewSubject === s.key && viewMode === 'avg_std'
                                 ? { background: '#eff6ff', fontWeight: 'bold' } : {})
                             }}>
-                              {d[s.key]?.avg_grade ?? '-'}
+                              {d[s.key]?.avg_std ?? '-'}
                             </td>
-                            {s.key !== 'english' && s.key !== 'history' && (
-                              <td style={{
-                                ...styles.td,
-                                ...(viewSubject === s.key && viewMode === 'avg_std'
-                                  ? { background: '#eff6ff', fontWeight: 'bold' } : {})
-                              }}>
-                                {d[s.key]?.avg_std ?? '-'}
-                              </td>
-                            )}
-                            <td style={{
-                              ...styles.td,
-                              ...(viewSubject === s.key && viewMode === 'g1'
-                                ? { background: '#eff6ff', fontWeight: 'bold' } : {})
-                            }}>
-                              {d[s.key]?.g1 ?? 0}명
-                            </td>
-                          </React.Fragment>
-                        ))}
-                      </tr>
-                    );
-                  })}
+                          )}
+                          <td style={{
+                            ...styles.td,
+                            ...(viewSubject === s.key && viewMode === 'g1'
+                              ? { background: '#eff6ff', fontWeight: 'bold' } : {})
+                          }}>
+                            {d[s.key]?.g1 ?? 0}명
+                          </td>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -226,24 +233,24 @@ export default function ClassComparePage() {
 }
 
 const styles = {
-  container:  { padding: '24px', maxWidth: '1400px', margin: '0 auto' },
-  titleRow:   { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' },
-  title:      { fontSize: '24px', color: '#1e40af', margin: 0 },
-  pdfBtn:     { background: '#dc2626', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
-  row:        { display: 'flex', gap: '12px', marginBottom: '16px' },
-  select:     { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px' },
-  btn:        { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '15px' },
-  optionCard: { background: 'white', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
-  optionRow:  { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
-  optionLabel:{ fontSize: '13px', fontWeight: 'bold', color: '#374151', minWidth: '40px' },
-  chip:       { padding: '4px 12px', borderRadius: '20px', border: '1px solid #d1d5db', background: '#f9fafb', cursor: 'pointer', fontSize: '13px' },
-  chipOn:     { background: '#1e40af', color: 'white', border: '1px solid #1e40af', fontWeight: 'bold' },
-  chartCard:  { background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '16px' },
-  chartTitle: { fontSize: '15px', fontWeight: 'bold', color: '#374151', marginBottom: '12px' },
-  note:       { fontSize: '12px', color: '#9ca3af', marginTop: '8px' },
-  tableCard:  { background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  tableTitle: { fontSize: '15px', fontWeight: 'bold', color: '#374151', marginBottom: '12px' },
-  table:      { borderCollapse: 'collapse', fontSize: '12px', width: '100%' },
-  th:         { padding: '8px', border: '1px solid #e5e7eb', background: '#eff6ff', textAlign: 'center', whiteSpace: 'nowrap' },
-  td:         { padding: '7px', border: '1px solid #f3f4f6', textAlign: 'center', whiteSpace: 'nowrap' },
+  container:   { padding: '24px', maxWidth: '1400px', margin: '0 auto' },
+  titleRow:    { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' },
+  title:       { fontSize: '24px', color: '#1e40af', margin: 0 },
+  pdfBtn:      { background: '#dc2626', color: 'white', border: 'none', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' },
+  row:         { display: 'flex', gap: '12px', marginBottom: '16px' },
+  select:      { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px' },
+  btn:         { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '15px' },
+  optionCard:  { background: 'white', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
+  optionRow:   { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' },
+  optionLabel: { fontSize: '13px', fontWeight: 'bold', color: '#374151', minWidth: '40px' },
+  chip:        { padding: '4px 12px', borderRadius: '20px', border: '1px solid #d1d5db', background: '#f9fafb', cursor: 'pointer', fontSize: '13px' },
+  chipOn:      { background: '#1e40af', color: 'white', border: '1px solid #1e40af', fontWeight: 'bold' },
+  chartCard:   { background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '16px' },
+  chartTitle:  { fontSize: '15px', fontWeight: 'bold', color: '#374151', marginBottom: '12px' },
+  note:        { fontSize: '12px', color: '#9ca3af', marginTop: '8px' },
+  tableCard:   { background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
+  tableTitle:  { fontSize: '15px', fontWeight: 'bold', color: '#374151', marginBottom: '12px' },
+  table:       { borderCollapse: 'collapse', fontSize: '12px', width: '100%' },
+  th:          { padding: '8px', border: '1px solid #e5e7eb', background: '#eff6ff', textAlign: 'center', whiteSpace: 'nowrap' },
+  td:          { padding: '7px', border: '1px solid #f3f4f6', textAlign: 'center', whiteSpace: 'nowrap' },
 };

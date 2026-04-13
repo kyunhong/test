@@ -76,7 +76,6 @@ function GradeBarChart({ label, dist, gradeStudents }) {
         {label}
         <span style={styles.clickHint}> ← 막대 클릭 시 학생 목록</span>
       </h3>
-
       <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={data}
@@ -93,7 +92,6 @@ function GradeBarChart({ label, dist, gradeStudents }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-
       {modalInfo && (
         <GradeModal
           subject={label}
@@ -115,32 +113,40 @@ export default function AnalysisPage() {
   const [summary,      setSummary]      = useState(null);
   const contentRef = useRef(null);
 
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
+
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const loadAnalysis = async () => {
     if (!selectedExam) return;
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/summary?exam_name=${encodeURIComponent(selectedExam)}`
+      `/analysis/summary?exam_name=${encodeURIComponent(selectedExam)}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setSummary(res.data);
   };
 
   // PDF 저장
   const savePDF = async () => {
-    const el = contentRef.current;
+    const el     = contentRef.current;
     const canvas = await html2canvas(el, { scale: 1.5, useCORS: true });
     const imgData = canvas.toDataURL('image/png');
-    const pdf  = new jsPDF('p', 'mm', 'a4');
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgH  = (canvas.height * pageW) / canvas.width;
+    const pdf    = new jsPDF('p', 'mm', 'a4');
+    const pageW  = pdf.internal.pageSize.getWidth();
+    const pageH  = pdf.internal.pageSize.getHeight();
+    const imgH   = (canvas.height * pageW) / canvas.width;
     let y = 0;
     while (y < imgH) {
       pdf.addImage(imgData, 'PNG', 0, -y, pageW, imgH);
@@ -192,8 +198,7 @@ export default function AnalysisPage() {
 
   return (
     <div style={styles.container}>
-
-      {/* 제목 + PDF 버튼 */}
+      {/* ── 제목 + PDF 버튼 ── */}
       <div style={styles.titleRow}>
         <h2 style={styles.title}>📈 성적 분석</h2>
         {summary && (
@@ -203,23 +208,23 @@ export default function AnalysisPage() {
         )}
       </div>
 
-      {/* 시험 선택 */}
+      {/* ── 시험 선택 ── */}
       <div style={styles.selectRow}>
         <select style={styles.select} value={selectedExam}
           onChange={e => setSelectedExam(e.target.value)}>
           <option value="">시험 선택</option>
           {(Array.isArray(exams) ? exams : []).map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
         <button style={styles.button} onClick={loadAnalysis}>분석</button>
       </div>
 
-      {/* PDF 캡처 영역 */}
+      {/* ── PDF 캡처 영역 ── */}
       <div ref={contentRef}>
         {summary && (
           <>
-            {/* ── 요약 카드 ── */}
+            {/* 요약 카드 */}
             <div style={styles.cardRow}>
               {summaryCards.map(item => (
                 <div key={item.label} style={styles.card}>
@@ -246,7 +251,7 @@ export default function AnalysisPage() {
               ))}
             </div>
 
-            {/* ── 등급 분포 차트 6개 ── */}
+            {/* 등급 분포 차트 6개 */}
             <div style={styles.chartGrid}>
               <GradeBarChart
                 label="국어"
@@ -282,7 +287,6 @@ export default function AnalysisPage() {
           </>
         )}
       </div>
-
     </div>
   );
 }
@@ -311,25 +315,11 @@ const styles = {
 };
 
 const modal = {
-  overlay: {
-    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  box: {
-    background: 'white', borderRadius: '12px', padding: '24px',
-    minWidth: '300px', maxHeight: '80vh', overflowY: 'auto',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-  },
-  header: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: '16px', fontSize: '16px', fontWeight: 'bold', color: '#1e40af',
-  },
-  close: {
-    background: 'none', border: 'none', fontSize: '18px',
-    cursor: 'pointer', color: '#6b7280',
-  },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th:    { padding: '8px', background: '#eff6ff', border: '1px solid #bfdbfe', textAlign: 'center' },
-  td:    { padding: '7px', border: '1px solid #e5e7eb', textAlign: 'center' },
+  overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  box:     { background: 'white', borderRadius: '12px', padding: '24px', minWidth: '300px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' },
+  header:  { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', fontSize: '16px', fontWeight: 'bold', color: '#1e40af' },
+  close:   { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#6b7280' },
+  table:   { width: '100%', borderCollapse: 'collapse' },
+  th:      { padding: '8px', background: '#eff6ff', border: '1px solid #bfdbfe', textAlign: 'center' },
+  td:      { padding: '7px', border: '1px solid #e5e7eb', textAlign: 'center' },
 };

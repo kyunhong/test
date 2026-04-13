@@ -23,12 +23,10 @@ const calcExplore = (society, science, method) => {
 
 const checkMinimum = (student, config) => {
   if (!config.enabled) return null;
-
   const societyEnabled = config.subjects.find(s => s.key === 'society')?.enabled;
   const scienceEnabled = config.subjects.find(s => s.key === 'science')?.enabled;
   const bothExplore    = societyEnabled && scienceEnabled;
-
-  const exploreGrade = bothExplore
+  const exploreGrade   = bothExplore
     ? calcExplore(student.society_grade, student.science_grade, config.exploreMethod)
     : null;
 
@@ -71,7 +69,6 @@ const checkMinimum = (student, config) => {
   const combos  = getCombinations(pool, N);
   const sums    = combos.map(c => c.reduce((a, b) => a + b, 0));
   const bestSum = Math.min(...sums);
-
   return { ok: bestSum <= M, best: bestSum, N, M, note: '' };
 };
 
@@ -87,7 +84,6 @@ export default function AllStudentsPage() {
   const [filterBan,    setFilterBan]    = useState('전체');
   const [search,       setSearch]       = useState('');
   const [filterMin,    setFilterMin]    = useState('전체');
-
   const [minConfig, setMinConfig] = useState({
     enabled:       false,
     subjectCount:  2,
@@ -99,23 +95,30 @@ export default function AllStudentsPage() {
       { key: 'english', label: '영어',     enabled: true },
       { key: 'society', label: '통합사회', enabled: true },
       { key: 'science', label: '통합과학', enabled: true },
-      // 한국사 제외 ✅
     ]
   });
 
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
+
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const load = async () => {
     if (!selectedExam) return;
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
     const res = await api.get(
-      `/analysis/all-students?exam_name=${encodeURIComponent(selectedExam)}`
+      `/analysis/all-students?exam_name=${encodeURIComponent(selectedExam)}&session_id=${sessionId}`  // ✅ session_id 추가
     );
     setStudents(res.data);
   };
@@ -191,11 +194,12 @@ export default function AllStudentsPage() {
     { label: '과학표준',   key: 'science_std' },
     { label: '과학백분위', key: 'science_pct' },
     { label: '과학등급',   key: 'science_grade', isGrade: true },
-    { label: '한국사등급', key: 'history_grade', isGrade: false }, // ← 색상 없음 ✅
+    { label: '한국사등급', key: 'history_grade', isGrade: false },
   ];
 
   return (
     <div style={styles.container}>
+      {/* ── 제목 + PDF ── */}
       <div style={styles.titleRow}>
         <h2 style={styles.title}>📋 전체 학생 성적</h2>
         {students.length > 0 && (
@@ -203,13 +207,13 @@ export default function AllStudentsPage() {
         )}
       </div>
 
-      {/* 시험 선택 */}
+      {/* ── 시험 선택 ── */}
       <div style={styles.row}>
         <select style={styles.select} value={selectedExam}
           onChange={e => setSelectedExam(e.target.value)}>
           <option value="">시험 선택</option>
           {(Array.isArray(exams) ? exams : []).map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
         <button style={styles.btn} onClick={load}>불러오기</button>
@@ -227,7 +231,6 @@ export default function AllStudentsPage() {
 
         {minConfig.enabled && (
           <div style={styles.minBody}>
-
             {/* N합 M 설정 */}
             <div style={styles.minSection}>
               <span style={styles.minLabel}>기준:</span>
@@ -255,7 +258,7 @@ export default function AllStudentsPage() {
               </div>
             </div>
 
-            {/* 적용 과목 풀 (한국사 없음) */}
+            {/* 적용 과목 풀 */}
             <div style={styles.minSection}>
               <span style={styles.minLabel}>적용 과목:</span>
               <div style={styles.subjectRow}>
@@ -274,7 +277,7 @@ export default function AllStudentsPage() {
               <span style={styles.poolDesc}>체크된 과목들 중 최적 조합으로 판단</span>
             </div>
 
-            {/* 탐구 방식 (사회+과학 둘 다 체크 시에만 표시) */}
+            {/* 탐구 방식 */}
             {bothExplore && (
               <div style={styles.minSection}>
                 <span style={styles.minLabel}>탐구 방식:</span>
@@ -330,7 +333,7 @@ export default function AllStudentsPage() {
         )}
       </div>
 
-      {/* 반 필터 + 검색 */}
+      {/* ── 반 필터 + 검색 ── */}
       {students.length > 0 && (
         <div style={styles.filterRow}>
           <div style={styles.banBtns}>
@@ -350,7 +353,7 @@ export default function AllStudentsPage() {
         </div>
       )}
 
-      {/* 테이블 */}
+      {/* ── 테이블 ── */}
       {filtered.length > 0 && (
         <div id="all-students-content" style={styles.tableWrap}>
           <table style={styles.table}>

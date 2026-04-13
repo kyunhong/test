@@ -9,26 +9,41 @@ function ComparisonPage() {
   const [exams, setExams] = useState([]);
   const [exam1, setExam1] = useState('');
   const [exam2, setExam2] = useState('');
-  const [data, setData] = useState(null);
+  const [data,  setData]  = useState(null);
+
+  // ✅ session_id 가져오기
+  const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
-      api.get('/exams').then(res => {
-          const list = Array.isArray(res.data) ? res.data
-                    : Array.isArray(res.data.exams) ? res.data.exams
-                    : [];
-          setExams(list);
+    const sessionId = getSessionId();
+    if (!sessionId) return;  // ✅ session_id 없으면 조회 안함
+
+    api.get('/exams', { params: { session_id: sessionId } })  // ✅ session_id 추가
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data
+                   : Array.isArray(res.data.exams) ? res.data.exams
+                   : [];
+        setExams(list);
       });
   }, []);
 
   const loadComparison = async () => {
-    const res = await api.get(`/analysis/comparison?exam1=${exam1}&exam2=${exam2}`);
+    if (!exam1 || !exam2) return;
+
+    const sessionId = getSessionId();  // ✅ session_id 가져오기
+    const res = await api.get(
+      `/analysis/comparison?exam1=${encodeURIComponent(exam1)}&exam2=${encodeURIComponent(exam2)}&session_id=${sessionId}`  // ✅ session_id 추가
+    );
     setData(res.data);
   };
 
   const makeChartData = () => {
     if (!data) return [];
     const subjects = ['korean','math','english','society','science','history'];
-    const labels = { korean:'국어', math:'수학', english:'영어', society:'통합사회', science:'통합과학', history:'한국사' };
+    const labels   = {
+      korean: '국어', math: '수학', english: '영어',
+      society: '통합사회', science: '통합과학', history: '한국사'
+    };
     return subjects.map(s => ({
       subject: labels[s],
       [data.exam1.name]: data.exam1.grade1[s],
@@ -41,18 +56,22 @@ function ComparisonPage() {
       <h2 style={styles.title}>🔄 시험 비교</h2>
 
       <div style={styles.row}>
-        <select style={styles.select} value={exam1} onChange={e => setExam1(e.target.value)}>
+        <select style={styles.select} value={exam1}
+          onChange={e => setExam1(e.target.value)}>
           <option value="">첫 번째 시험</option>
           {(Array.isArray(exams) ? exams : []).map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
-        <select style={styles.select} value={exam2} onChange={e => setExam2(e.target.value)}>
+
+        <select style={styles.select} value={exam2}
+          onChange={e => setExam2(e.target.value)}>
           <option value="">두 번째 시험</option>
           {(Array.isArray(exams) ? exams : []).map(e => (
-              <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
+            <option key={e.exam_name} value={e.exam_name}>{e.exam_name}</option>
           ))}
         </select>
+
         <button style={styles.button} onClick={loadComparison}>비교</button>
       </div>
 
@@ -78,12 +97,12 @@ function ComparisonPage() {
 
 const styles = {
   container: { padding: '30px', maxWidth: '1200px', margin: '0 auto' },
-  title: { fontSize: '24px', marginBottom: '20px', color: '#1e40af' },
-  row: { display: 'flex', gap: '12px', marginBottom: '24px' },
-  select: { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px' },
-  button: { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer' },
-  chartBox: { background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  chartTitle: { marginBottom: '16px', color: '#374151' }
+  title:     { fontSize: '24px', marginBottom: '20px', color: '#1e40af' },
+  row:       { display: 'flex', gap: '12px', marginBottom: '24px' },
+  select:    { flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '15px' },
+  button:    { background: '#1e40af', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer' },
+  chartBox:  { background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
+  chartTitle:{ marginBottom: '16px', color: '#374151' }
 };
 
 export default ComparisonPage;
