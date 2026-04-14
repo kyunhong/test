@@ -10,5 +10,8 @@ pip install streamlit pandas plotly numpy scikit-learn scipy qrcode pillow
 streamlit run 분류.py --server.port 8501 --server.address 0.0.0.0
 
 
-backend에서 uvicorn app.main:app --reload --port 8000
+backend에서 python -m uvicorn app.main:app --reload --port 8000
+
+uvicorn app.main:app --reload --port 8000
+
 frontend에서 npm start
