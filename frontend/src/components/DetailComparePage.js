@@ -750,46 +750,33 @@ const mcStyles = {
 };
 
 const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => {
-  const [activeTab, setActiveTab] = useState('analysis');
-  const modalBodyRef = useRef(null);
 
+  // ── Hook 선언부 (모두 최상단) ──────────────────
+  const [activeTab,       setActiveTab]       = useState('analysis');  // ✅
+  const [currentStudent,  setCurrentStudent]  = useState(student);     // ✅
+  const modalBodyRef = useRef(null);                                    // ✅
+
+  // currentIndex / hasPrev / hasNext 계산
   const currentIndex = allStudents
     ? allStudents.findIndex(s => s.ban === student?.ban && s.number === student?.number)
     : -1;
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < (allStudents?.length ?? 0) - 1;
 
-  const [currentStudent, setCurrentStudent] = useState(student);
-
+  // ✅ useEffect 1
   useEffect(() => {
     setCurrentStudent(student);
     setActiveTab('analysis');
   }, [student]);
 
-  const goToPrev = () => {
-    if (hasPrev) {
-      setCurrentStudent(allStudents[currentIndex - 1]);
-      setActiveTab('analysis');
-      if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
-    }
-  };
+  // goToPrev / goToNext / handleTabChange 함수 정의
+  const goToPrev = () => { ... };
+  const goToNext = () => { ... };
+  const handleTabChange = (key) => { ... };
 
-  const goToNext = () => {
-    if (hasNext) {
-      setCurrentStudent(allStudents[currentIndex + 1]);
-      setActiveTab('analysis');
-      if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
-    }
-  };
-
-  const handleTabChange = (key) => {
-    setActiveTab(key);
-    if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
-  };
-
-  // ✅ early return 위로 이동
+  // ✅ useEffect 2 - early return 전에 위치 (키보드 이벤트)
   useEffect(() => {
-    if (!currentStudent) return;   // ← early return 대신 내부에서 처리
+    if (!currentStudent) return;   // ← 내부에서 처리
     const handleKey = (e) => {
       if (e.key === 'ArrowLeft')  goToPrev();
       if (e.key === 'ArrowRight') goToNext();
@@ -797,13 +784,12 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [currentIndex, currentStudent]);  // ✅ currentStudent 의존성 추가
+  }, [currentIndex, currentStudent]);
 
-  // ✅ Hook 전부 선언한 뒤 early return
+  // ✅ 모든 Hook 완료 후 early return
   if (!currentStudent) return null;
 
   const s = currentStudent;
-
   // ── 데이터 계산 ──────────────────────────────────
   const grades = SUBJECTS.map(sub => {
     const currGrade = s[`${sub.key}_grade`];
@@ -1103,17 +1089,6 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
     { key: 'detail',   label: `📋 과목별 상세` },
     { key: 'comment',  label: `💬 코멘트`, badge: dangerCount > 0 ? dangerCount : null },
   ];
-
-  // ── 키보드 네비게이션 ────────────────────────────
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'ArrowLeft')  goToPrev();
-      if (e.key === 'ArrowRight') goToNext();
-      if (e.key === 'Escape')     onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [currentIndex]);
 
   return (
     <div style={smStyles.overlay} onClick={onClose}>
@@ -1958,6 +1933,7 @@ export default function DetailComparePage() {
         student={selectedStudent}
         prevExam={prevExam}
         currExam={currExam}
+        allStudents={filteredStudents}
         onClose={() => setSelectedStudent(null)}
       />
     </div>
