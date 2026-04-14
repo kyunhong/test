@@ -750,61 +750,242 @@ const mcStyles = {
 };
 
 const StudentModal = ({ student, prevExam, currExam, onClose }) => {
+  const [activeTab, setActiveTab] = useState('analysis');
   if (!student) return null;
 
-  // 과목별 이전등급 계산 (현재 + diff = 이전)
-  const getGrades = (s) => {
-    return SUBJECTS.map(sub => {
-      const currGrade = s[`${sub.key}_grade`];
-      const diff      = s[`diff_${sub.key}_grade`];
-      const prevGrade = (currGrade != null && diff != null)
-        ? currGrade + diff
-        : null;
-      return {
-        key:       sub.key,
-        label:     sub.label,
-        currGrade,
-        prevGrade,
-        diff,        // diff = 이전 - 현재, 양수면 향상
-      };
-    });
-  };
+  // ── 데이터 계산 ──────────────────────────────────
+  const grades = SUBJECTS.map(sub => {
+    const currGrade = student[`${sub.key}_grade`];
+    const diff      = student[`diff_${sub.key}_grade`];
+    const prevGrade = (currGrade != null && diff != null) ? currGrade + diff : null;
+    return { key: sub.key, label: sub.label, currGrade, prevGrade, diff };
+  });
 
-  const grades = getGrades(student);
+  const validGrades  = grades.filter(g => g.currGrade != null);
+  const avgGrade     = validGrades.length
+    ? (validGrades.reduce((s, g) => s + g.currGrade, 0) / validGrades.length).toFixed(1)
+    : null;
+  const improvedList  = grades.filter(g => g.diff != null && g.diff > 0);
+  const declinedList  = grades.filter(g => g.diff != null && g.diff < 0);
+  const maintainedList= grades.filter(g => g.diff != null && g.diff === 0);
+  const bestSubject   = [...improvedList].sort((a, b) => b.diff - a.diff)[0];
+  const worstSubject  = [...declinedList].sort((a, b) => a.diff - b.diff)[0];
+  const maxGrade      = Math.max(...validGrades.map(g => g.currGrade));
+  const minGrade      = Math.min(...validGrades.map(g => g.currGrade));
+  const gradeGap      = maxGrade - minGrade;
+  const weakSubject   = validGrades.find(g => g.currGrade === maxGrade);
+  const strongSubject = validGrades.find(g => g.currGrade === minGrade);
 
-  // 꺾은선 데이터 (등급은 낮을수록 좋으므로 역전)
-  const chartData = grades.map(g => ({
-    subject:    g.label,
-    이전:       g.prevGrade,
-    현재:       g.currGrade,
-    prevGrade:  g.prevGrade,
-    currGrade:  g.currGrade,
+  let position = '';
+  if      (avgGrade <= 1.5) position = '최상위권';
+  else if (avgGrade <= 2.5) position = '상위권';
+  else if (avgGrade <= 3.5) position = '중상위권';
+  else if (avgGrade <= 5)   position = '중위권';
+  else                      position = '하위권';
+
+  // ── KPI 카드 데이터 ──────────────────────────────
+  const kpiCards = [
+    {
+      label: '종합 향상도',
+      value: student.total_improvement > 0 ? `▲ +${student.total_improvement}`
+           : student.total_improvement < 0 ? `▼ ${student.total_improvement}` : '→ 0',
+      sub:   '등급 합산 변화',
+      color: student.total_improvement > 0 ? '#059669'
+           : student.total_improvement < 0 ? '#dc2626' : '#6b7280',
+      bg:    student.total_improvement > 0 ? '#f0fdf4'
+           : student.total_improvement < 0 ? '#fff7f7' : '#f8fafc',
+      border:student.total_improvement > 0 ? '#10b981'
+           : student.total_improvement < 0 ? '#ef4444' : '#cbd5e1',
+    },
+    {
+      label: '현재 포지션',
+      value: position,
+      sub:   `평균 ${avgGrade}등급`,
+      color: avgGrade <= 2.5 ? '#1e40af' : avgGrade <= 3.5 ? '#059669' : '#d97706',
+      bg:    avgGrade <= 2.5 ? '#eff6ff' : avgGrade <= 3.5 ? '#f0fdf4' : '#fffbeb',
+      border:avgGrade <= 2.5 ? '#93c5fd' : avgGrade <= 3.5 ? '#6ee7b7' : '#fcd34d',
+    },
+    {
+      label: '최대 향상',
+      value: bestSubject ? `${bestSubject.label} ▲${bestSubject.diff}` : '-',
+      sub:   bestSubject
+        ? `${bestSubject.prevGrade}등급 → ${bestSubject.currGrade}등급`
+        : '향상 과목 없음',
+      color: '#059669',
+      bg:    '#f0fdf4',
+      border:'#10b981',
+    },
+    {
+      label: '주의 과목',
+      value: worstSubject ? `${worstSubject.label} ▼${Math.abs(worstSubject.diff)}` : '없음',
+      sub:   worstSubject
+        ? `${worstSubject.prevGrade}등급 → ${worstSubject.currGrade}등급`
+        : '하락 과목 없음',
+      color: worstSubject ? '#dc2626' : '#059669',
+      bg:    worstSubject ? '#fff7f7' : '#f0fdf4',
+      border:worstSubject ? '#ef4444' : '#10b981',
+    },
+  ];
+
+  // ── 꺾은선 데이터 ────────────────────────────────
+  const lineData = grades.map(g => ({
+    subject:   g.label,
+    이전:      g.prevGrade,
+    현재:      g.currGrade,
+    prevGrade: g.prevGrade,
+    currGrade: g.currGrade,
+    diff:      g.diff,
   }));
 
-  // 커스텀 dot
+  // ── 레이더 데이터 ────────────────────────────────
+  const radarData = grades.map(g => ({
+    subject: g.label,
+    이전:    g.prevGrade ? parseFloat((10 - g.prevGrade).toFixed(1)) : 0,
+    현재:    g.currGrade ? parseFloat((10 - g.currGrade).toFixed(1)) : 0,
+    prevGrade: g.prevGrade,
+    currGrade: g.currGrade,
+  }));
+
+  // ── 규칙 기반 코멘트 ─────────────────────────────
+  const generateComments = () => {
+    const comments = [];
+
+    // 1) 대폭 향상 (2등급 이상)
+    grades.filter(g => g.diff >= 2).forEach(g => {
+      comments.push({
+        type: 'success',
+        icon: '🏆',
+        title: `${g.label} 대폭 향상`,
+        desc:  `${g.prevGrade}등급 → ${g.currGrade}등급으로 ${g.diff}등급 상승했습니다.`,
+      });
+    });
+
+    // 2) 상위권 진입
+    grades.filter(g => g.prevGrade >= 3 && g.currGrade <= 2).forEach(g => {
+      comments.push({
+        type: 'success',
+        icon: '📈',
+        title: `${g.label} 상위권 진입`,
+        desc:  `${g.prevGrade}등급에서 ${g.currGrade}등급으로 올라 상위권에 진입했습니다.`,
+      });
+    });
+
+    // 3) 상위권 이탈
+    grades.filter(g => g.prevGrade <= 2 && g.currGrade >= 3).forEach(g => {
+      comments.push({
+        type: 'danger',
+        icon: '📉',
+        title: `${g.label} 상위권 이탈`,
+        desc:  `${g.prevGrade}등급(상위권)에서 ${g.currGrade}등급으로 하락했습니다. 이전 수준 회복이 우선 목표입니다.`,
+      });
+    });
+
+    // 4) 위험 (하락 + 현재 5등급 이상)
+    grades.filter(g => g.diff < 0 && g.currGrade >= 5 &&
+      !(g.prevGrade <= 2 && g.currGrade >= 3) // 상위권 이탈과 중복 방지
+    ).forEach(g => {
+      comments.push({
+        type: 'danger',
+        icon: '⚠️',
+        title: `${g.label} 집중 관리 필요`,
+        desc:  `${g.prevGrade}등급에서 ${g.currGrade}등급으로 하락했습니다. 현재 ${g.currGrade}등급으로 즉각적인 보완이 필요합니다.`,
+      });
+    });
+
+    // 5) 최우선 집중 과목
+    if (worstSubject) {
+      comments.push({
+        type: 'action',
+        icon: '🎯',
+        title: '최우선 집중 과목',
+        desc:  `${worstSubject.label}이(가) ${Math.abs(worstSubject.diff)}등급 하락하여 가장 시급한 보완이 필요합니다. ${worstSubject.currGrade}등급에서 ${worstSubject.currGrade - 1}등급 회복을 목표로 하세요.`,
+      });
+    }
+
+    // 6) 과목 간 불균형
+    if (gradeGap >= 3) {
+      comments.push({
+        type: 'warning',
+        icon: '⚖️',
+        title: '과목 간 불균형',
+        desc:  `${strongSubject?.label}(${minGrade}등급)과 ${weakSubject?.label}(${maxGrade}등급) 간 ${gradeGap}등급 차이가 납니다. 취약 과목 집중이 필요합니다.`,
+      });
+    }
+
+    // 7) 전과목 향상
+    if (improvedList.length === grades.filter(g => g.diff != null).length && improvedList.length > 0) {
+      comments.push({
+        type: 'success',
+        icon: '🌟',
+        title: '전과목 향상',
+        desc:  '모든 과목에서 고르게 성적이 향상되었습니다. 훌륭한 성과입니다.',
+      });
+    }
+
+    // 8) 하락 없음 (유지 이상)
+    if (declinedList.length === 0 && grades.filter(g => g.diff != null).length > 0
+        && improvedList.length < grades.filter(g => g.diff != null).length) {
+      comments.push({
+        type: 'info',
+        icon: '✅',
+        title: '안정적 성취',
+        desc:  '하락한 과목 없이 안정적인 성적을 유지했습니다.',
+      });
+    }
+
+    // 9) 전반적 하락세
+    if (declinedList.length > improvedList.length && declinedList.length >= 3) {
+      comments.push({
+        type: 'warning',
+        icon: '📊',
+        title: '전반적 하락세',
+        desc:  `${declinedList.length}개 과목이 하락했습니다. 학습 전략 전반을 점검해볼 필요가 있습니다.`,
+      });
+    }
+
+    // 10) 현재 포지션
+    comments.push({
+      type: 'info',
+      icon: '📍',
+      title: '현재 포지션',
+      desc:  `전과목 평균 ${avgGrade}등급으로 현재 ${position}에 위치합니다.`,
+    });
+
+    // 우선순위 정렬
+    const ORDER = { danger: 0, action: 1, warning: 2, success: 3, info: 4 };
+    return comments.sort((a, b) => ORDER[a.type] - ORDER[b.type]);
+  };
+
+  const comments = student.has_prev ? generateComments() : [];
+
+  const typeConfig = {
+    danger:  { bg: '#fff7f7', border: '#ef4444', titleColor: '#dc2626', tagBg: '#fee2e2', tagColor: '#991b1b', tag: '긴급' },
+    action:  { bg: '#eff6ff', border: '#3b82f6', titleColor: '#1e40af', tagBg: '#dbeafe', tagColor: '#1e40af', tag: '집중' },
+    warning: { bg: '#fffbeb', border: '#f59e0b', titleColor: '#d97706', tagBg: '#fef3c7', tagColor: '#92400e', tag: '주의' },
+    success: { bg: '#f0fdf4', border: '#10b981', titleColor: '#059669', tagBg: '#d1fae5', tagColor: '#065f46', tag: '향상' },
+    info:    { bg: '#f8fafc', border: '#94a3b8', titleColor: '#475569', tagBg: '#f1f5f9', tagColor: '#475569', tag: '정보' },
+  };
+
+  // ── 커스텀 Dot (꺾은선) ──────────────────────────
   const CustomDot = (props) => {
     const { cx, cy, payload, dataKey } = props;
-    const color = dataKey === '이전' ? '#2f03cf' : '#ff0000';
+    const color = dataKey === '이전' ? '#6366f1' : '#f43f5e';
     const grade = dataKey === '이전' ? payload.prevGrade : payload.currGrade;
     if (grade == null) return null;
     return (
       <g>
-        <circle cx={cx} cy={cy} r={16}
-          fill={color} fillOpacity={0.15}
+        <circle cx={cx} cy={cy} r={18}
+          fill={color} fillOpacity={0.12}
           stroke={color} strokeWidth={2} />
         <text x={cx} y={cy + 5}
-          textAnchor="middle"
-          fontSize={13}
-          fontWeight="bold"
-          fill={color}>
-          {grade}
-        </text>
+          textAnchor="middle" fontSize={13}
+          fontWeight="bold" fill={color}>{grade}</text>
       </g>
     );
   };
 
-  // 커스텀 툴팁
-  const CustomTooltip = ({ active, payload, label }) => {
+  // ── 꺾은선 커스텀 툴팁 ──────────────────────────
+  const LineTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     const prev = payload.find(p => p.dataKey === '이전')?.payload?.prevGrade;
     const curr = payload.find(p => p.dataKey === '현재')?.payload?.currGrade;
@@ -812,13 +993,15 @@ const StudentModal = ({ student, prevExam, currExam, onClose }) => {
     return (
       <div style={{
         background: 'white', border: '1px solid #e5e7eb',
-        padding: '10px 14px', borderRadius: '8px',
-        fontSize: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+        padding: '10px 14px', borderRadius: '10px',
+        fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
       }}>
         <p style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '6px' }}>{label}</p>
-        {prev != null && <p style={{ color: '#2f03cf', margin: '2px 0' }}>이전: {prev}등급</p>}
-        {curr != null && <p style={{ color: '#ff0000', margin: '2px 0' }}>현재: {curr}등급</p>}
-        {diff != null && (
+        {prev != null && student.has_prev &&
+          <p style={{ color: '#6366f1', margin: '2px 0' }}>이전: {prev}등급</p>}
+        {curr != null &&
+          <p style={{ color: '#f43f5e', margin: '2px 0' }}>현재: {curr}등급</p>}
+        {diff != null && student.has_prev && (
           <p style={{
             borderTop: '1px solid #e5e7eb', marginTop: '6px', paddingTop: '6px',
             fontWeight: 'bold',
@@ -833,181 +1016,357 @@ const StudentModal = ({ student, prevExam, currExam, onClose }) => {
     );
   };
 
-  // 향상/하락/유지 집계
-  const improved   = grades.filter(g => g.diff != null && g.diff > 0).length;
-  const declined   = grades.filter(g => g.diff != null && g.diff < 0).length;
-  const maintained = grades.filter(g => g.diff != null && g.diff === 0).length;
+  // ── 레이더 커스텀 툴팁 ──────────────────────────
+  const RadarTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    const prevG = payload[0]?.payload?.prevGrade;
+    const currG = payload[0]?.payload?.currGrade;
+    return (
+      <div style={{
+        background: 'white', border: '1px solid #e5e7eb',
+        padding: '10px 14px', borderRadius: '10px',
+        fontSize: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      }}>
+        <p style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '6px' }}>{label}</p>
+        {prevG != null && student.has_prev &&
+          <p style={{ color: '#6366f1', margin: '2px 0' }}>이전: {prevG}등급</p>}
+        {currG != null &&
+          <p style={{ color: '#f43f5e', margin: '2px 0' }}>현재: {currG}등급</p>}
+      </div>
+    );
+  };
 
-  // 가장 많이 향상/하락한 과목
-  const bestSubject  = [...grades]
-    .filter(g => g.diff != null && g.diff > 0)
-    .sort((a, b) => b.diff - a.diff)[0];
-  const worstSubject = [...grades]
-    .filter(g => g.diff != null && g.diff < 0)
-    .sort((a, b) => a.diff - b.diff)[0];
+  // ── 꺾은선 Y축 구간 배경 (ReferenceArea 대신 그라디언트) ──
+  const GradeBg = () => (
+    <>
+      {[
+        { y1: 1, y2: 2, color: 'rgba(30,64,175,0.04)'  },
+        { y1: 2, y2: 3, color: 'rgba(99,102,241,0.04)' },
+        { y1: 3, y2: 4, color: 'rgba(16,185,129,0.04)' },
+        { y1: 4, y2: 5, color: 'rgba(234,179,8,0.04)'  },
+      ].map((b, i) => (
+        <rect key={i} />  // ReferenceArea를 직접 쓸 예정
+      ))}
+    </>
+  );
+
+  // ── 탭 설정 ─────────────────────────────────────
+  const tabs = [
+    { key: 'analysis', label: '📊 성적 분석' },
+    { key: 'detail',   label: '📋 과목별 상세' },
+    { key: 'comment',  label: '💬 종합 코멘트' },
+  ];
 
   return (
     <div style={smStyles.overlay} onClick={onClose}>
       <div style={smStyles.modal} onClick={e => e.stopPropagation()}>
 
-        {/* ── 헤더 ── */}
+        {/* ── 헤더 ─────────────────────────────── */}
         <div style={smStyles.header}>
-          <div>
-            <span style={smStyles.name}>{student.name}</span>
-            <span style={smStyles.sub}>{student.ban}반 {student.number}번</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={smStyles.avatar}>
+              {student.name[0]}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={smStyles.name}>{student.name}</span>
+                <span style={smStyles.banBadge}>{student.ban}반 {student.number}번</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '3px' }}>
+                {prevExam} → {currExam}
+              </div>
+            </div>
           </div>
           <button style={smStyles.closeBtn} onClick={onClose}>✕</button>
         </div>
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>
-            {prevExam} → {currExam}
-          </span>
-          {student.has_prev && (
-            <>
-              <span style={smStyles.badge('#d1fae5', '#065f46')}>📈 향상 {improved}과목</span>
-              <span style={smStyles.badge('#eff6ff', '#1e40af')}>→ 유지 {maintained}과목</span>
-              <span style={smStyles.badge('#fee2e2', '#991b1b')}>📉 하락 {declined}과목</span>
-            </>
-          )}
-        </div>
 
-        {/* ── 꺾은선 그래프 ── */}
-        <div style={smStyles.section}>
-          <h4 style={smStyles.sectionTitle}>📊 과목별 등급 변화</h4>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '24px', height: '2px', borderTop: '2px dashed #2f03cf' }} />
-              <span style={{ fontSize: '12px', color: '#2f03cf', fontWeight: 'bold' }}>{prevExam}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '24px', height: '2px', background: '#ff0000' }} />
-              <span style={{ fontSize: '12px', color: '#ff0000', fontWeight: 'bold' }}>{currExam}</span>
-            </div>
+        {/* ── 향상/유지/하락 뱃지 ─────────────── */}
+        {student.has_prev && (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <span style={smStyles.statBadge('#d1fae5', '#059669')}>
+              📈 향상 {improvedList.length}과목
+            </span>
+            <span style={smStyles.statBadge('#eff6ff', '#1e40af')}>
+              → 유지 {maintainedList.length}과목
+            </span>
+            <span style={smStyles.statBadge('#fee2e2', '#dc2626')}>
+              📉 하락 {declinedList.length}과목
+            </span>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="subject" tick={{ fontSize: 12 }} tickLine={false} />
-              <YAxis
-                reversed                          // ✅ 1등급이 위로
-                domain={[1, 5]}
-                ticks={[1, 2, 3, 4, 5]}
-                tick={{ fontSize: 11 }}
-                width={28}
-                tickFormatter={v => `${v}등급`}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone" dataKey="이전"
-                stroke="#2f03cf" strokeWidth={2}
-                strokeDasharray="5 3"
-                dot={<CustomDot />} activeDot={false}
-                connectNulls
-              />
-              <Line
-                type="monotone" dataKey="현재"
-                stroke="#ff0000" strokeWidth={2.5}
-                dot={<CustomDot />} activeDot={false}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        )}
+
+        {/* ── KPI 카드 4개 ─────────────────────── */}
+        {student.has_prev && (
+          <div style={smStyles.kpiRow}>
+            {kpiCards.map((k, i) => (
+              <div key={i} style={{
+                ...smStyles.kpiCard,
+                background: k.bg,
+                borderColor: k.border,
+              }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', fontWeight: 'bold' }}>
+                  {k.label}
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: k.color, marginBottom: '4px' }}>
+                  {k.value}
+                </div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>
+                  {k.sub}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── 탭 ───────────────────────────────── */}
+        <div style={smStyles.tabRow}>
+          {tabs.map(t => (
+            <button key={t.key}
+              style={{
+                ...smStyles.tab,
+                ...(activeTab === t.key ? smStyles.tabActive : {}),
+              }}
+              onClick={() => setActiveTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* ── 과목별 상세 카드 ── */}
-        <div style={smStyles.section}>
-          <h4 style={smStyles.sectionTitle}>📋 과목별 상세</h4>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {grades.map(g => {
-              const improved  = g.diff != null && g.diff > 0;
-              const declined  = g.diff != null && g.diff < 0;
-              const border    = improved ? '#10b981'
-                              : declined ? '#ef4444' : '#93c5fd';
-              const bg        = improved ? '#f0fdf4'
-                              : declined ? '#fff7f7' : '#eff6ff';
-              return (
-                <div key={g.key} style={{
-                  ...smStyles.gradeCard,
-                  border: `2px solid ${border}`,
-                  background: bg,
-                }}>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}>
-                    {g.label}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-                    {g.prevGrade != null && student.has_prev ? (
-                      <>
-                        <span style={{ ...smStyles.gradeChip, background: '#e0e7ff', color: '#2f03cf' }}>
-                          {g.prevGrade}등급
-                        </span>
-                        <span style={{ color: '#9ca3af', fontSize: '12px' }}>→</span>
-                        <span style={{ ...smStyles.gradeChip, background: '#fee2e2', color: '#ff0000' }}>
-                          {g.currGrade ?? '-'}등급
-                        </span>
-                      </>
-                    ) : (
-                      <span style={{ ...smStyles.gradeChip, background: '#fee2e2', color: '#ff0000' }}>
-                        {g.currGrade ?? '-'}등급
-                      </span>
-                    )}
-                  </div>
-                  {g.diff != null && student.has_prev && (
-                    <div style={{
-                      marginTop: '8px', fontSize: '12px', fontWeight: 'bold', textAlign: 'center',
-                      color: improved ? '#059669' : declined ? '#dc2626' : '#1e40af',
-                    }}>
-                      {improved  ? `▲ ${g.diff}등급 향상`
-                       : declined ? `▼ ${Math.abs(g.diff)}등급 하락`
-                       : '→ 유지'}
+        {/* ══ 탭 1: 성적 분석 ══════════════════ */}
+        {activeTab === 'analysis' && (
+          <div>
+            {/* 레이더 + 꺾은선 나란히 */}
+            <div style={smStyles.chartRow}>
+
+              {/* 레이더 차트 */}
+              <div style={smStyles.chartBox}>
+                <div style={smStyles.chartLabel}>
+                  📡 과목별 등급 레이더
+                  <span style={smStyles.chartSub}>바깥쪽 = 높은 등급</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', justifyContent: 'center' }}>
+                  {student.has_prev && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#6366f1', opacity: 0.6 }} />
+                      <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 'bold' }}>{prevExam}</span>
                     </div>
                   )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#f43f5e', opacity: 0.6 }} />
+                    <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: 'bold' }}>{currExam}</span>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── 종합 요약 ── */}
-        {student.has_prev && (
-          <div style={smStyles.section}>
-            <h4 style={smStyles.sectionTitle}>🏆 종합 요약</h4>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <div style={{ ...smStyles.summaryBox, background: '#f0fdf4', borderColor: '#10b981' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>종합 향상도</div>
-                <div style={{
-                  fontSize: '20px', fontWeight: 'bold',
-                  color: student.total_improvement > 0 ? '#059669'
-                       : student.total_improvement < 0 ? '#dc2626' : '#1e40af',
-                }}>
-                  {student.total_improvement > 0 ? `▲ +${student.total_improvement}`
-                   : student.total_improvement < 0 ? `▼ ${student.total_improvement}`
-                   : '→ 0'}
-                </div>
-                <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>등급 합산 변화</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <RadarChart data={radarData} margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: '#374151' }} />
+                    {student.has_prev && (
+                      <Radar name={prevExam} dataKey="이전"
+                        stroke="#6366f1" fill="#6366f1" fillOpacity={0.15}
+                        strokeWidth={1.5} strokeDasharray="4 2" />
+                    )}
+                    <Radar name={currExam} dataKey="현재"
+                      stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.2}
+                      strokeWidth={2} />
+                    <Tooltip content={<RadarTooltip />} />
+                  </RadarChart>
+                </ResponsiveContainer>
               </div>
-              {bestSubject && (
-                <div style={{ ...smStyles.summaryBox, background: '#f0fdf4', borderColor: '#10b981' }}>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>최대 향상 과목</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#059669' }}>
-                    {bestSubject.label}
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#059669', marginTop: '2px' }}>
-                    ▲ {bestSubject.diff}등급
+
+              {/* 꺾은선 차트 */}
+              <div style={smStyles.chartBox}>
+                <div style={smStyles.chartLabel}>
+                  📈 등급 변화 추이
+                  <span style={smStyles.chartSub}>낮을수록 높은 등급</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', justifyContent: 'center' }}>
+                  {student.has_prev && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <div style={{ width: '20px', height: '2px', borderTop: '2px dashed #6366f1' }} />
+                      <span style={{ fontSize: '11px', color: '#6366f1', fontWeight: 'bold' }}>{prevExam}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ width: '20px', height: '2px', background: '#f43f5e' }} />
+                    <span style={{ fontSize: '11px', color: '#f43f5e', fontWeight: 'bold' }}>{currExam}</span>
                   </div>
                 </div>
-              )}
-              {worstSubject && (
-                <div style={{ ...smStyles.summaryBox, background: '#fff7f7', borderColor: '#ef4444' }}>
-                  <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>주의 과목</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#dc2626' }}>
-                    {worstSubject.label}
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#dc2626', marginTop: '2px' }}>
-                    ▼ {Math.abs(worstSubject.diff)}등급
-                  </div>
-                </div>
-              )}
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={lineData} margin={{ top: 20, right: 24, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="improveGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="declineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0} />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0.2} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="subject" tick={{ fontSize: 11 }} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                    <YAxis
+                      reversed
+                      domain={[1, 9]}
+                      ticks={[1, 2, 3, 4, 5, 6, 7, 8, 9]}
+                      tick={{ fontSize: 10 }}
+                      width={36}
+                      tickFormatter={v => `${v}등급`}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<LineTooltip />} />
+                    {student.has_prev && (
+                      <Line
+                        type="monotone" dataKey="이전"
+                        stroke="#6366f1" strokeWidth={2}
+                        strokeDasharray="5 3"
+                        dot={<CustomDot />} activeDot={false}
+                        connectNulls
+                      />
+                    )}
+                    <Line
+                      type="monotone" dataKey="현재"
+                      stroke="#f43f5e" strokeWidth={2.5}
+                      dot={<CustomDot />} activeDot={false}
+                      connectNulls
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* ══ 탭 2: 과목별 상세 테이블 ══════════ */}
+        {activeTab === 'detail' && (
+          <div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9' }}>
+                  <th style={smStyles.dTh}>과목</th>
+                  {student.has_prev && <th style={smStyles.dTh}>이전 등급</th>}
+                  <th style={smStyles.dTh}>현재 등급</th>
+                  {student.has_prev && <th style={smStyles.dTh}>변화</th>}
+                  <th style={{ ...smStyles.dTh, minWidth: '120px' }}>등급 바</th>
+                  <th style={smStyles.dTh}>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grades.map((g, i) => {
+                  const isImproved = g.diff != null && g.diff > 0;
+                  const isDeclined = g.diff != null && g.diff < 0;
+                  const rowBg      = isImproved ? '#f0fdf4'
+                                   : isDeclined ? '#fff7f7'
+                                   : i % 2 === 0 ? 'white' : '#f9fafb';
+                  // 상태바 = 1등급 꽉 참, 9등급 거의 없음
+                  const barWidth   = g.currGrade
+                    ? Math.round(((9 - g.currGrade) / 8) * 100) : 0;
+                  const barColor   = g.currGrade <= 2 ? '#1e40af'
+                                   : g.currGrade <= 4 ? '#059669'
+                                   : g.currGrade <= 6 ? '#d97706' : '#dc2626';
+                  return (
+                    <tr key={g.key} style={{ background: rowBg }}>
+                      <td style={{ ...smStyles.dTd, fontWeight: 'bold', color: '#1e40af' }}>
+                        {g.label}
+                      </td>
+                      {student.has_prev && (
+                        <td style={{ ...smStyles.dTd, color: '#6366f1', fontWeight: 'bold' }}>
+                          {g.prevGrade != null ? `${g.prevGrade}등급` : '-'}
+                        </td>
+                      )}
+                      <td style={{ ...smStyles.dTd, color: '#f43f5e', fontWeight: 'bold' }}>
+                        {g.currGrade != null ? `${g.currGrade}등급` : '-'}
+                      </td>
+                      {student.has_prev && (
+                        <td style={{
+                          ...smStyles.dTd, fontWeight: 'bold',
+                          color: isImproved ? '#059669' : isDeclined ? '#dc2626' : '#6b7280',
+                        }}>
+                          {g.diff == null ? '-'
+                           : isImproved ? `▲ ${g.diff}등급`
+                           : isDeclined ? `▼ ${Math.abs(g.diff)}등급`
+                           : '→ 유지'}
+                        </td>
+                      )}
+                      <td style={{ ...smStyles.dTd, paddingLeft: '8px', paddingRight: '8px' }}>
+                        <div style={{
+                          background: '#f1f5f9', borderRadius: '6px',
+                          height: '10px', overflow: 'hidden', position: 'relative',
+                        }}>
+                          <div style={{
+                            width: `${barWidth}%`, height: '100%',
+                            background: barColor, borderRadius: '6px',
+                            transition: 'width 0.4s ease',
+                          }} />
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '2px', textAlign: 'right' }}>
+                          {g.currGrade != null ? `${g.currGrade}등급` : ''}
+                        </div>
+                      </td>
+                      <td style={{ ...smStyles.dTd, textAlign: 'center' }}>
+                        {g.currGrade == null ? '' :
+                          g.currGrade <= 2 ? <span style={smStyles.statusChip('#dbeafe','#1e40af')}>상위권</span>
+                        : g.currGrade <= 4 ? <span style={smStyles.statusChip('#d1fae5','#059669')}>중상위</span>
+                        : g.currGrade <= 6 ? <span style={smStyles.statusChip('#fef3c7','#d97706')}>중위권</span>
+                        :                   <span style={smStyles.statusChip('#fee2e2','#dc2626')}>하위권</span>
+                        }
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ══ 탭 3: 종합 코멘트 ══════════════════ */}
+        {activeTab === 'comment' && (
+          <div>
+            {!student.has_prev ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                이전 시험 데이터가 없어 분석이 불가합니다.
+              </div>
+            ) : comments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                분석 데이터가 없습니다.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {comments.map((c, i) => {
+                  const cfg = typeConfig[c.type];
+                  return (
+                    <div key={i} style={{
+                      background: cfg.bg,
+                      border: `1.5px solid ${cfg.border}`,
+                      borderRadius: '10px',
+                      padding: '14px 16px',
+                      display: 'flex',
+                      gap: '12px',
+                      alignItems: 'flex-start',
+                    }}>
+                      <span style={{ fontSize: '20px', lineHeight: 1 }}>{c.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 'bold', color: cfg.titleColor }}>
+                            {c.title}
+                          </span>
+                          <span style={{
+                            fontSize: '10px', padding: '1px 7px', borderRadius: '8px',
+                            background: cfg.tagBg, color: cfg.tagColor, fontWeight: 'bold',
+                          }}>
+                            {cfg.tag}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '13px', color: '#374151', margin: 0, lineHeight: 1.6 }}>
+                          {c.desc}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -1016,22 +1375,29 @@ const StudentModal = ({ student, prevExam, currExam, onClose }) => {
   );
 };
 
-// 스타일
+// ── smStyles ─────────────────────────────────────────────
 const smStyles = {
-  overlay:      { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  modal:        { background: 'white', borderRadius: '16px', padding: '28px', width: '90%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.2)' },
-  header:       { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' },
-  name:         { fontSize: '22px', fontWeight: 'bold', color: '#1e40af' },
-  sub:          { fontSize: '14px', color: '#6b7280', marginLeft: '10px' },
-  closeBtn:     { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#6b7280' },
-  badge:        (bg, color) => ({ fontSize: '12px', padding: '2px 10px', borderRadius: '12px', background: bg, color, fontWeight: 'bold' }),
-  section:      { marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #f3f4f6' },
-  sectionTitle: { fontSize: '14px', fontWeight: 'bold', color: '#374151', marginBottom: '14px' },
-  gradeCard:    { borderRadius: '10px', padding: '12px 16px', minWidth: '110px', textAlign: 'center', flex: '1 1 100px' },
-  gradeChip:    { fontSize: '13px', fontWeight: 'bold', padding: '3px 10px', borderRadius: '8px', display: 'inline-block' },
-  summaryBox:   { flex: '1 1 130px', border: '2px solid', borderRadius: '12px', padding: '14px 16px', textAlign: 'center', minWidth: '130px' },
+  overlay:     { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' },
+  modal:       { background: 'white', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '780px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' },
+  header:      { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' },
+  avatar:      { width: '44px', height: '44px', borderRadius: '50%', background: 'linear-gradient(135deg,#1e40af,#6366f1)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 'bold', flexShrink: 0 },
+  name:        { fontSize: '20px', fontWeight: 'bold', color: '#1e293b' },
+  banBadge:    { fontSize: '12px', background: '#eff6ff', color: '#1e40af', padding: '2px 10px', borderRadius: '12px', fontWeight: 'bold' },
+  closeBtn:    { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#94a3b8', padding: '4px' },
+  statBadge:   (bg, color) => ({ fontSize: '12px', padding: '4px 12px', borderRadius: '12px', background: bg, color, fontWeight: 'bold' }),
+  kpiRow:      { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' },
+  kpiCard:     { border: '1.5px solid', borderRadius: '12px', padding: '14px 12px', textAlign: 'center' },
+  tabRow:      { display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '2px solid #f1f5f9', paddingBottom: '0' },
+  tab:         { padding: '10px 18px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#94a3b8', borderBottom: '2px solid transparent', marginBottom: '-2px' },
+  tabActive:   { color: '#1e40af', borderBottom: '2px solid #1e40af' },
+  chartRow:    { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+  chartBox:    { background: '#f8fafc', borderRadius: '12px', padding: '16px', border: '1px solid #e5e7eb' },
+  chartLabel:  { fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '10px' },
+  chartSub:    { fontSize: '11px', color: '#94a3b8', marginLeft: '6px', fontWeight: 'normal' },
+  dTh:         { padding: '10px 12px', textAlign: 'center', fontWeight: 'bold', color: '#374151', fontSize: '12px', borderBottom: '2px solid #e5e7eb' },
+  dTd:         { padding: '10px 12px', textAlign: 'center', fontSize: '13px', borderBottom: '1px solid #f3f4f6' },
+  statusChip:  (bg, color) => ({ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', background: bg, color, fontWeight: 'bold', display: 'inline-block' }),
 };
-
 // ══════════════════════════════════════════════════
 // 메인 컴포넌트
 // ══════════════════════════════════════════════════
