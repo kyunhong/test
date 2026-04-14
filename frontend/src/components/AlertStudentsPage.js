@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
+import { getSessionId } from '../App'; 
 
 const EXPLORE_OPTIONS = [
   { value: 'avg',   label: '평균 (소수점 버림)', desc: '(사회+과학)÷2' },
@@ -94,7 +95,7 @@ export default function AlertStudentsPage() {
   const [sortKey,       setSortKey]       = useState('default');
 
   // ✅ session_id 가져오기
-  const getSessionId = () => localStorage.getItem('session_id');
+  //const getSessionId = () => localStorage.getItem('session_id');
 
   useEffect(() => {
     const sessionId = getSessionId();
