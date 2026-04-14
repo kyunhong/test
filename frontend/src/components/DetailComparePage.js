@@ -753,7 +753,6 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
   const [activeTab, setActiveTab] = useState('analysis');
   const modalBodyRef = useRef(null);
 
-  // ── 이전/다음 학생 네비게이션 ─────────────────────
   const currentIndex = allStudents
     ? allStudents.findIndex(s => s.ban === student?.ban && s.number === student?.number)
     : -1;
@@ -774,6 +773,7 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
       if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
     }
   };
+
   const goToNext = () => {
     if (hasNext) {
       setCurrentStudent(allStudents[currentIndex + 1]);
@@ -782,13 +782,26 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
     }
   };
 
-  // 탭 전환 시 스크롤 상단
   const handleTabChange = (key) => {
     setActiveTab(key);
     if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
   };
 
+  // ✅ early return 위로 이동
+  useEffect(() => {
+    if (!currentStudent) return;   // ← early return 대신 내부에서 처리
+    const handleKey = (e) => {
+      if (e.key === 'ArrowLeft')  goToPrev();
+      if (e.key === 'ArrowRight') goToNext();
+      if (e.key === 'Escape')     onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [currentIndex, currentStudent]);  // ✅ currentStudent 의존성 추가
+
+  // ✅ Hook 전부 선언한 뒤 early return
   if (!currentStudent) return null;
+
   const s = currentStudent;
 
   // ── 데이터 계산 ──────────────────────────────────
