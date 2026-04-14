@@ -10,7 +10,6 @@ import {
 } from 'recharts';
 import { getSessionId } from '../App'; 
 
-const [selectedStudent, setSelectedStudent] = useState(null);
 
 const SUBJECTS = [
   { key: 'korean',  label: '국어' },
@@ -1041,6 +1040,7 @@ export default function DetailComparePage() {
   const [currExam,   setCurrExam]   = useState('');
   const [prevExam,   setPrevExam]   = useState('');
   const [data,       setData]       = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [mainTab,    setMainTab]    = useState('school');
   const [distTab,    setDistTab]    = useState('bar');
   const [migSubject, setMigSubject] = useState('korean');
