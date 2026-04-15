@@ -770,9 +770,27 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
   }, [student]);
 
   // goToPrev / goToNext / handleTabChange 함수 정의
-  const goToPrev = () => { ... };
-  const goToNext = () => { ... };
-  const handleTabChange = (key) => { ... };
+  // ✅ 실제 코드로 교체
+  const goToPrev = () => {
+    if (hasPrev) {
+      setCurrentStudent(allStudents[currentIndex - 1]);
+      setActiveTab('analysis');
+      if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+    }
+  };
+
+  const goToNext = () => {
+    if (hasNext) {
+      setCurrentStudent(allStudents[currentIndex + 1]);
+      setActiveTab('analysis');
+      if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+    }
+  };
+
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    if (modalBodyRef.current) modalBodyRef.current.scrollTop = 0;
+  };
 
   // ✅ useEffect 2 - early return 전에 위치 (키보드 이벤트)
   useEffect(() => {
