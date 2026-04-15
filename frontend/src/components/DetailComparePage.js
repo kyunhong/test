@@ -1419,7 +1419,6 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
                   {s.has_prev && <th style={smStyles.dTh}>이전 등급</th>}
                   <th style={smStyles.dTh}>현재 등급</th>
                   {s.has_prev && <th style={smStyles.dTh}>변화</th>}
-                  <th style={{ ...smStyles.dTh, minWidth: '140px' }}>등급 바</th>
                   <th style={smStyles.dTh}>상태</th>
                 </tr>
               </thead>
@@ -1433,11 +1432,6 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
                                    : isDeclined && bigChange ? '#fee2e2'
                                    : isDeclined             ? '#fff7f7'
                                    : i % 2 === 0            ? 'white' : '#f9fafb';
-                  const barWidth   = g.currGrade
-                    ? Math.round(((9 - g.currGrade) / 8) * 100) : 0;
-                  const barColor   = g.currGrade <= 2 ? '#1e40af'
-                                   : g.currGrade <= 4 ? '#059669'
-                                   : g.currGrade <= 6 ? '#d97706' : '#dc2626';
                   return (
                     <tr key={g.key} style={{ background: rowBg }}>
                       <td style={{ ...smStyles.dTd, fontWeight: 'bold', color: '#1e40af' }}>
@@ -1467,22 +1461,6 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
                           )}
                         </td>
                       )}
-                      <td style={{ ...smStyles.dTd, paddingLeft: '10px', paddingRight: '10px' }}>
-                        <div style={{
-                          background: '#e5e7eb', borderRadius: '8px',
-                          height: '14px', overflow: 'hidden',
-                        }}>
-                          <div style={{
-                            width: `${barWidth}%`, height: '100%',
-                            background: `linear-gradient(90deg, ${barColor}cc, ${barColor})`,
-                            borderRadius: '8px',
-                            transition: 'width 0.4s ease',
-                          }} />
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '3px', textAlign: 'right' }}>
-                          {g.currGrade != null ? `${g.currGrade}등급` : ''}
-                        </div>
-                      </td>
                       <td style={{ ...smStyles.dTd, textAlign: 'center' }}>
                         {g.currGrade == null ? '' :
                           g.currGrade <= 2
