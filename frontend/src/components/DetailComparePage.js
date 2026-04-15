@@ -754,6 +754,7 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
   // ── Hook 선언부 (모두 최상단) ──────────────────
   const [activeTab,       setActiveTab]       = useState('analysis');  // ✅
   const [currentStudent,  setCurrentStudent]  = useState(student);     // ✅
+  const [exploMode,       setExploMode]       = useState('A');  
   const modalBodyRef = useRef(null);                                    // ✅
 
   // currentIndex / hasPrev / hasNext 계산
@@ -1267,6 +1268,148 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
             </div>
           </div>
         )}
+        {/* ── 최저학력기준 ─────────────────────── */}
+        {(() => {
+          const curr = currentStudent;
+
+          const korGrade  = curr?.korean_grade  ?? null;
+          const mathGrade = curr?.math_grade    ?? null;
+          const engGrade  = curr?.english_grade ?? null;
+          const socGrade  = curr?.society_grade ?? null;
+          const sciGrade  = curr?.science_grade ?? null;
+
+          const exploA = (socGrade != null && sciGrade != null)
+            ? Math.min(socGrade, sciGrade)
+            : (socGrade ?? sciGrade);
+
+          const exploB = (socGrade != null && sciGrade != null)
+            ? Math.round((socGrade + sciGrade) / 2)
+            : (socGrade ?? sciGrade);
+
+          const sameResult = exploA === exploB;
+          const exploGrade = exploMode === 'A' ? exploA : exploB;
+
+          const calcBestSum = (n) => {
+            const pool = [korGrade, mathGrade, engGrade, exploGrade].filter(g => g != null);
+            if (pool.length < n) return null;
+            const combinations = (arr, k) => {
+              if (k === 1) return arr.map(v => [v]);
+              return arr.flatMap((v, i) =>
+                combinations(arr.slice(i + 1), k - 1).map(rest => [v, ...rest])
+              );
+            };
+            const combos = combinations(pool, n);
+            return Math.min(...combos.map(c => c.reduce((a, b) => a + b, 0)));
+          };
+
+          const best2 = calcBestSum(2);
+          const best3 = calcBestSum(3);
+
+          if (best2 == null && best3 == null) return null;
+
+          return (
+            <div style={{
+              background: '#f9fafb',
+              border: '1.5px solid #e5e7eb',
+              borderRadius: '14px',
+              padding: '14px 18px',
+              marginBottom: '14px',
+            }}>
+              {/* 헤더 */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+              }}>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                  최저학력기준
+                </div>
+                {!sameResult && (
+                  <div style={{
+                    display: 'flex',
+                    background: '#e5e7eb',
+                    borderRadius: '8px',
+                    padding: '2px',
+                    gap: '2px',
+                  }}>
+                    {[['A', '잘한 과목'], ['B', '평균 반올림']].map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        onClick={() => setExploMode(mode)}
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: exploMode === mode ? 'bold' : 'normal',
+                          color: exploMode === mode ? '#fff' : '#6b7280',
+                          background: exploMode === mode ? '#374151' : 'transparent',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '3px 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        탐구 {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2합 / 3합 */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {[
+                  { label: '2합', value: best2 },
+                  { label: '3합', value: best3 },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{
+                    flex: 1,
+                    background: '#fff',
+                    border: '1.5px solid #e5e7eb',
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                  }}>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
+                      {label} 베스트
+                    </div>
+                    <div style={{ fontSize: '22px', fontWeight: '900', color: '#111827', lineHeight: 1 }}>
+                      {value ?? '-'}
+                      <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#6b7280', marginLeft: '3px' }}>
+                        등급합
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 사용 등급 */}
+              <div style={{
+                marginTop: '10px',
+                fontSize: '11px',
+                color: '#9ca3af',
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}>
+                {[
+                  ['국어', korGrade],
+                  ['수학', mathGrade],
+                  ['영어', engGrade],
+                  ['탐구', exploGrade],
+                ].map(([name, grade]) => (
+                  <span key={name}>
+                    {name} <span style={{ color: '#374151', fontWeight: 'bold' }}>{grade ?? '-'}</span>
+                  </span>
+                ))}
+                {!sameResult && (
+                  <span style={{ color: '#d97706' }}>
+                    ({exploMode === 'A' ? '잘한 과목 기준' : '평균 반올림 기준'})
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
 
 
         {/* ── KPI 카드 4개 ─────────────────────── */}
