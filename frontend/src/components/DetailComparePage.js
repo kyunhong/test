@@ -758,7 +758,7 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
 
   // currentIndex / hasPrev / hasNext 계산
   const currentIndex = allStudents
-    ? allStudents.findIndex(s => s.ban === student?.ban && s.number === student?.number)
+    ? allStudents.findIndex(s => s.ban === currentStudent?.ban && s.number === currentStudent?.number)
     : -1;
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < (allStudents?.length ?? 0) - 1;
