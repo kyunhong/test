@@ -816,10 +816,13 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
     return { key: sub.key, label: sub.label, currGrade, prevGrade, diff };
   });
 
-  const validGrades    = grades.filter(g => g.currGrade != null);
-  const avgGrade       = validGrades.length
+  const EXCLUDE     = ['history'];
+  const validGrades = grades.filter(g => g.currGrade != null && !EXCLUDE.includes(g.key));
+  const avgGrade    = validGrades.length
     ? (validGrades.reduce((sum, g) => sum + g.currGrade, 0) / validGrades.length).toFixed(1)
     : null;
+
+    
   const improvedList   = grades.filter(g => g.diff != null && g.diff > 0);
   const declinedList   = grades.filter(g => g.diff != null && g.diff < 0);
   const maintainedList = grades.filter(g => g.diff != null && g.diff === 0);
@@ -1167,6 +1170,105 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
           </div>
         )}
 
+        {/* ── 평균등급 강조 배너 ─────────────────── */}
+        {avgGrade && (
+          <div style={{
+            background: avgGrade <= 2 ? 'linear-gradient(135deg, #eff6ff, #dbeafe)'
+                      : avgGrade <= 4 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)'
+                      : avgGrade <= 6 ? 'linear-gradient(135deg, #fffbeb, #fef3c7)'
+                      :                 'linear-gradient(135deg, #fff7f7, #fee2e2)',
+            border: `2px solid ${
+                      avgGrade <= 2 ? '#93c5fd'
+                    : avgGrade <= 4 ? '#6ee7b7'
+                    : avgGrade <= 6 ? '#fcd34d'
+                    :                 '#fca5a5'}`,
+            borderRadius: '16px',
+            padding: '18px 24px',
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            {/* 왼쪽: 라벨 */}
+            <div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#6b7280',
+                marginBottom: '4px',
+                letterSpacing: '0.05em',
+              }}>
+                국수영사과 평균등급
+              </div>
+            </div>
+            {/* 가운데: 등급 숫자 크게 */}
+            <div style={{ textAlign: 'center', flex: 1 }}>
+              <span style={{
+                fontSize: '52px',
+                fontWeight: '900',
+                color: avgGrade <= 2 ? '#1e40af'
+                    : avgGrade <= 4 ? '#059669'
+                    : avgGrade <= 6 ? '#d97706'
+                    :                 '#dc2626',
+                lineHeight: 1,
+                letterSpacing: '-2px',
+              }}>
+                {avgGrade}
+              </span>
+              <span style={{
+                fontSize: '20px',
+                fontWeight: 'bold',
+                color: avgGrade <= 2 ? '#1e40af'
+                    : avgGrade <= 4 ? '#059669'
+                    : avgGrade <= 6 ? '#d97706'
+                    :                 '#dc2626',
+                marginLeft: '4px',
+              }}>
+                등급
+              </span>
+            </div>
+            {/* 오른쪽: 포지션 뱃지 */}
+            <div style={{ textAlign: 'right' }}>
+              <div style={{
+                fontSize: '22px',
+                fontWeight: 'bold',
+                color: avgGrade <= 2 ? '#1e40af'
+                    : avgGrade <= 4 ? '#059669'
+                    : avgGrade <= 6 ? '#d97706'
+                    :                 '#dc2626',
+                marginBottom: '6px',
+              }}>
+                {position}
+              </div>
+              {/* 등급 시각화 바 */}
+              <div style={{
+                width: '120px',
+                height: '8px',
+                background: '#e5e7eb',
+                borderRadius: '8px',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${Math.round(((9 - avgGrade) / 8) * 100)}%`,
+                  height: '100%',
+                  background: avgGrade <= 2 ? '#1e40af'
+                            : avgGrade <= 4 ? '#059669'
+                            : avgGrade <= 6 ? '#d97706'
+                            :                 '#dc2626',
+                  borderRadius: '8px',
+                  transition: 'width 0.4s ease',
+                }} />
+              </div>
+              <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px', textAlign: 'right' }}>
+                1등급 ←─→ 9등급
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {/* ── KPI 카드 4개 ─────────────────────── */}
         {s.has_prev && (
           <div style={smStyles.kpiRow}>
@@ -1507,7 +1609,11 @@ export default function DetailComparePage() {
 
   // 평균등급 계산 함수 추가 (컴포넌트 바깥 or load 위쪽)
   const calcAvgGrade = (s) => {
-    const grades = SUBJECTS.map(sub => s[`${sub.key}_grade`]).filter(g => g != null);
+    const EXCLUDE = ['history'];
+    const grades = SUBJECTS
+      .filter(sub => !EXCLUDE.includes(sub.key))
+      .map(sub => s[`${sub.key}_grade`])
+      .filter(g => g != null);
     if (grades.length === 0) return null;
     return parseFloat((grades.reduce((sum, g) => sum + g, 0) / grades.length).toFixed(2));
   };
