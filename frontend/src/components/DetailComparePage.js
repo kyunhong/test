@@ -1367,16 +1367,16 @@ const StudentModal = ({ student, prevExam, currExam, onClose, allStudents }) => 
                     border: '1.5px solid #e5e7eb',
                     borderRadius: '10px',
                     padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: '6px',
                   }}>
-                    <div style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '2px' }}>
-                      {label} 베스트
-                    </div>
-                    <div style={{ fontSize: '22px', fontWeight: '900', color: '#111827', lineHeight: 1 }}>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#000000' }}>
+                      {label}
+                    </span>
+                    <span style={{ fontSize: '24px', fontWeight: '900', color: '#ff0000' }}>
                       {value ?? '-'}
-                      <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#6b7280', marginLeft: '3px' }}>
-                        등급합
-                      </span>
-                    </div>
+                    </span>
                   </div>
                 ))}
               </div>
