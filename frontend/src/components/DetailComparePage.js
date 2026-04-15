@@ -1484,8 +1484,8 @@ export default function DetailComparePage() {
   const [mainTab,    setMainTab]    = useState('school');
   const [distTab,    setDistTab]    = useState('bar');
   const [migSubject, setMigSubject] = useState('korean');
-  const [sortKey,    setSortKey]    = useState('total_improvement');
-  const [sortDir,    setSortDir]    = useState('desc');
+  const [sortKey, setSortKey] = useState('avg_grade');
+  const [sortDir, setSortDir] = useState('asc'); 
   const [filterBan,  setFilterBan]  = useState('전체');
   const [search,     setSearch]     = useState('');
 
@@ -1505,6 +1505,13 @@ export default function DetailComparePage() {
       });
   }, []);
 
+  // 평균등급 계산 함수 추가 (컴포넌트 바깥 or load 위쪽)
+  const calcAvgGrade = (s) => {
+    const grades = SUBJECTS.map(sub => s[`${sub.key}_grade`]).filter(g => g != null);
+    if (grades.length === 0) return null;
+    return parseFloat((grades.reduce((sum, g) => sum + g, 0) / grades.length).toFixed(2));
+  };
+  
   const load = async () => {
     if (!currExam || !prevExam) return;
     const sessionId = getSessionId();
@@ -1608,8 +1615,14 @@ export default function DetailComparePage() {
       return banOk && nameOk;
     })
     .sort((a, b) => {
-      const av = a[sortKey] ?? -999;
-      const bv = b[sortKey] ?? -999;
+      let av, bv;
+      if (sortKey === 'avg_grade') {
+        av = calcAvgGrade(a) ?? 999;
+        bv = calcAvgGrade(b) ?? 999;
+      } else {
+        av = a[sortKey] ?? -999;
+        bv = b[sortKey] ?? -999;
+      }
       return sortDir === 'asc' ? av - bv : bv - av;
     }) : [];
 
@@ -1901,6 +1914,7 @@ export default function DetailComparePage() {
                           <th style={styles.th}>{s.label}<br />등급변화</th>
                         </React.Fragment>
                       ))}
+                      <SortTh label="평균등급" sortK="avg_grade" />
                       <SortTh label="종합향상" sortK="total_improvement" />
                     </tr>
                   </thead>
@@ -1931,10 +1945,20 @@ export default function DetailComparePage() {
                             </React.Fragment>
                           );
                         })}
+                        <td style={{ ...styles.td, fontWeight: 'bold', color: (() => {
+                          const avg = calcAvgGrade(s);
+                          if (avg == null) return '#6b7280';
+                          if (avg <= 2) return '#1e40af';
+                          if (avg <= 4) return '#059669';
+                          if (avg <= 6) return '#d97706';
+                          return '#dc2626';
+                        })() }}>
+                          {calcAvgGrade(s) ?? '-'}
+                        </td>
                         <td style={{ ...styles.td, fontWeight: 'bold', fontSize: '14px', ...diffStyle(s.total_improvement) }}>
                           {s.has_prev
                             ? (s.total_improvement > 0 ? `▲${s.total_improvement}`
-                               : s.total_improvement < 0 ? `▼${Math.abs(s.total_improvement)}` : '→')
+                              : s.total_improvement < 0 ? `▼${Math.abs(s.total_improvement)}` : '→')
                             : '-'}
                         </td>
                       </tr>
